@@ -1,0 +1,16 @@
+[package]
+name = "kuco"
+edition = "2024"
+description = "kuco - kubernetes console tui"
+
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+[dependencies]
+crossterm = { workspace = true }
+futures = { workspace = true }
+ratatui = { workspace = true }
+tokio = { workspace = true }
+color-eyre = { workspace = true }
+
