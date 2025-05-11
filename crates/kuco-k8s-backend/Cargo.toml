@@ -1,5 +1,5 @@
 [package]
-name = "kuco-backend"
+name = "kuco-k8s-backend"
 edition = "2024"
 description = "backend library for kuco"
 

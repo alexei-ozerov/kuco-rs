@@ -5,7 +5,7 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, ListState, Paragraph},
 };
 
-use kuco_backend::{PodInfo, get_pod_info};
+use kuco_k8s_backend::{PodInfo, get_pod_info};
 
 #[derive(Debug, Clone)]
 pub struct Search {

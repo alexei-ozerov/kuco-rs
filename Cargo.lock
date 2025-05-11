@@ -1060,13 +1060,13 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "futures",
- "kuco-backend",
+ "kuco-k8s-backend",
  "ratatui",
  "tokio",
 ]
 
 [[package]]
-name = "kuco-backend"
+name = "kuco-k8s-backend"
 version = "0.1.0"
 dependencies = [
  "k8s-openapi",
