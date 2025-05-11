@@ -1060,6 +1060,7 @@ dependencies = [
  "color-eyre",
  "crossterm",
  "futures",
+ "kuco-backend",
  "ratatui",
  "tokio",
 ]
@@ -1071,6 +1072,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "serde",
+ "thiserror 2.0.12",
  "tokio",
 ]
 

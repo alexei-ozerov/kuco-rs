@@ -1,39 +1,43 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Color, Stylize},
-    widgets::{Block, BorderType, Paragraph, Widget},
+    style::{Style, Stylize},
+    widgets::{Block, BorderType, List, ListDirection, StatefulWidget},
 };
 
-use crate::app::App;
+use crate::app::{KubeState, KucoInterface};
 
-impl Widget for &App {
-    /// Renders the user interface widgets.
-    ///
-    // This is where you add new widgets.
-    // See the following resources:
-    // - https://docs.rs/ratatui/latest/ratatui/widgets/index.html
-    // - https://github.com/ratatui/ratatui/tree/master/examples
-    fn render(self, area: Rect, buf: &mut Buffer) {
+impl StatefulWidget for &KucoInterface {
+    type State = KubeState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::bordered()
-            .title("kuco")
+            .title("kuco - kubernetes console")
             .title_alignment(Alignment::Center)
             .border_type(BorderType::Rounded);
 
-        let text = format!(
-            "This is a tui template.\n\
-                Press `Esc`, `Ctrl-C` or `q` to stop running.\n\
-                Press left and right to increment and decrement the counter respectively.\n\
-                Counter: {}",
-            self.counter
-        );
+        let pod_info = match &state.pod_info {
+            Some(pod_info_data) => {
+                let pod_names_vec: Vec<String> =
+                    pod_info_data.iter().map(|po| po.name.clone()).collect();
+                pod_names_vec
+            }
+            None => {
+                let error_string = "[ERROR] Figure out how to handle this later.".to_string();
+                let mut pod_names_vec: Vec<String> = Vec::new();
+                pod_names_vec.push(error_string);
+                pod_names_vec
+            }
+        };
 
-        let paragraph = Paragraph::new(text)
+        let list = List::new(pod_info)
             .block(block)
-            .fg(Color::Cyan)
-            .bg(Color::Black)
-            .centered();
+            .style(Style::new().blue())
+            .highlight_style(Style::new().italic())
+            .highlight_symbol(">>")
+            .repeat_highlight_symbol(true)
+            .direction(ListDirection::BottomToTop);
 
-        paragraph.render(area, buf);
+        list.render(area, buf, &mut state.pod_list);
     }
 }

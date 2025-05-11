@@ -4,7 +4,6 @@ members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
-name = "kuco"
 version = "0.1.0"
 description = "Kubernetes Console TUI"
 authors = ["Alexei Ozerova <aozerov.dev@gmail.com>"]

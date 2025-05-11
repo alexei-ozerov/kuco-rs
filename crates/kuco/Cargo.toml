@@ -8,6 +8,8 @@ authors = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
+kuco-backend = { path = "../kuco-backend/" }
+
 crossterm = { workspace = true }
 futures = { workspace = true }
 ratatui = { workspace = true }

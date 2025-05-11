@@ -2,30 +2,79 @@ use crate::event::{AppEvent, Event, EventHandler};
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    widgets::{Block, BorderType, Borders, ListState, Paragraph},
 };
+
+use kuco_backend::{PodInfo, get_pod_info};
+
+#[derive(Debug, Clone)]
+pub struct Search {
+    input: String,
+}
+
+#[derive(Debug, Clone)]
+pub struct KubeState {
+    pub pod_info: Option<Vec<PodInfo>>,
+    pub pod_list: ListState,
+    pub search: Search,
+}
+
+impl KubeState {
+    fn new() -> Self {
+        KubeState {
+            pod_info: None,
+            pod_list: ListState::default(),
+            search: Search {
+                input: "".to_string()
+            }
+        }
+    }
+
+    // TODO: Input should name itself after cluster context or something.
+    pub fn build_input(&self) -> Paragraph {
+        /// Max width of the UI box showing current mode
+        const MAX_WIDTH: usize = 14;
+        let (pref, mode) = (" ", "GLOBAL");
+        let mode_width = MAX_WIDTH - pref.len();
+        let input = format!(
+            "[{pref}{mode:^mode_width$}] {}",
+            self.search.input.as_str(),
+        );
+        let input = Paragraph::new(input);
+
+        input.block(
+            Block::default()
+                .borders(Borders::LEFT | Borders::RIGHT)
+                .border_type(BorderType::Rounded)
+                .title(format!("{:─>width$}", "", width = 12)),
+        )
+    }
+}
 
 /// Application.
 #[derive(Debug)]
-pub struct App {
+pub struct KucoInterface {
     /// Is the application running?
     pub running: bool,
     /// Counter.
     pub counter: u8,
     /// Event handler.
     pub events: EventHandler,
+    pub state: KubeState,
 }
 
-impl Default for App {
+impl Default for KucoInterface {
     fn default() -> Self {
         Self {
             running: true,
             counter: 0,
             events: EventHandler::new(),
+            state: KubeState::new(),
         }
     }
 }
 
-impl App {
+impl KucoInterface {
     /// Constructs a new instance of [`App`].
     pub fn new() -> Self {
         Self::default()
@@ -33,8 +82,17 @@ impl App {
 
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
+        let pod_info_vec = get_pod_info().await.unwrap();
+        self.state.pod_info = Some(pod_info_vec);
+
         while self.running {
-            terminal.draw(|frame| frame.render_widget(&self, frame.area()))?;
+            // TODO: Create update function in backend lib.
+            self.state.pod_info = Some(get_pod_info().await.unwrap());
+            let mut pod_data_state = self.state.clone();
+
+            terminal.draw(|frame| {
+                frame.render_stateful_widget(&self, frame.area(), &mut pod_data_state)
+            })?;
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
