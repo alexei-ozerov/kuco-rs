@@ -6,7 +6,7 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 description = "Kubernetes Console TUI"
-authors = ["Alexei Ozerova <aozerov.dev@gmail.com>"]
+authors = ["Alexei Ozerov <aozerov.dev@gmail.com>"]
 license = "MIT"
 edition = "2024"
 
