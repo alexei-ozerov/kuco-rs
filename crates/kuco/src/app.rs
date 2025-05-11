@@ -25,8 +25,8 @@ impl KubeState {
             pod_info: None,
             pod_list: ListState::default(),
             search: Search {
-                input: "".to_string()
-            }
+                input: "".to_string(),
+            },
         }
     }
 
@@ -36,10 +36,7 @@ impl KubeState {
         const MAX_WIDTH: usize = 14;
         let (pref, mode) = (" ", "GLOBAL");
         let mode_width = MAX_WIDTH - pref.len();
-        let input = format!(
-            "[{pref}{mode:^mode_width$}] {}",
-            self.search.input.as_str(),
-        );
+        let input = format!("[{pref}{mode:^mode_width$}] {}", self.search.input.as_str(),);
         let input = Paragraph::new(input);
 
         input.block(
