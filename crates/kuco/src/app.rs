@@ -5,28 +5,27 @@ use ratatui::{
     widgets::{Block, BorderType, Borders, ListState, Paragraph},
 };
 
-use kuco_k8s_backend::{PodInfo, get_pod_info};
+use crate::kube_data::KubeData;
 
 #[derive(Debug, Clone)]
 pub struct Search {
     input: String,
 }
 
-#[derive(Debug, Clone)]
 pub struct KubeState {
-    pub pod_info: Option<Vec<PodInfo>>,
-    pub pod_list: ListState,
+    pub data: KubeData,
     pub search: Search,
+    pub ns_list_state: ListState,
 }
 
 impl KubeState {
-    fn new() -> Self {
+    async fn new() -> Self {
         KubeState {
-            pod_info: None,
-            pod_list: ListState::default(),
+            data: KubeData::new().await,
             search: Search {
                 input: "".to_string(),
             },
+            ns_list_state: ListState::default(),
         }
     }
 
@@ -57,7 +56,6 @@ pub struct KucoInterface {
     pub counter: u8,
     /// Event handler.
     pub events: EventHandler,
-    pub state: KubeState,
 }
 
 impl Default for KucoInterface {
@@ -66,7 +64,6 @@ impl Default for KucoInterface {
             running: true,
             counter: 0,
             events: EventHandler::new(),
-            state: KubeState::new(),
         }
     }
 }
@@ -79,17 +76,14 @@ impl KucoInterface {
 
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
-        let pod_info_vec = get_pod_info().await.unwrap();
-        self.state.pod_info = Some(pod_info_vec);
+        let mut kube_state = KubeState::new().await;
+        kube_state.data.update_all().await;
 
         while self.running {
-            // TODO: Create update function in backend lib.
-            self.state.pod_info = Some(get_pod_info().await.unwrap());
-            let mut pod_data_state = self.state.clone();
-
             terminal.draw(|frame| {
-                frame.render_stateful_widget(&self, frame.area(), &mut pod_data_state)
+                frame.render_stateful_widget(&self, frame.area(), &mut kube_state)
             })?;
+            
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
@@ -103,6 +97,7 @@ impl KucoInterface {
                 },
             }
         }
+
         Ok(())
     }
 

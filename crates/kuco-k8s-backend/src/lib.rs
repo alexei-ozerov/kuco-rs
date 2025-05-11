@@ -19,8 +19,21 @@ pub enum KucoBackendError {
     Unknown,
 }
 
+#[derive(Default)]
+pub struct KubeContext {
+    pub client: Option<Client>,
+}
+
+impl KubeContext {
+    pub async fn init_context(&mut self) -> Result<(), KucoBackendError> {
+        self.client = Some(get_client().await?);
+
+        Ok(())
+    }
+}
+
 // Create a Kubernetes client. This will use your default kubeconfig.
-pub async fn get_client() -> Result<Client, KucoBackendError> {
+async fn get_client() -> Result<Client, KucoBackendError> {
     let client = Client::try_default().await?;
 
     Ok(client)
@@ -45,7 +58,7 @@ impl NamespaceData {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct PodInfo {
     pub name: String,
     pub status: String,
@@ -111,7 +124,7 @@ impl PodInfo {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct PodData {
     pub pods: Vec<PodInfo>,
 }
