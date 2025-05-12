@@ -5,10 +5,10 @@ use ratatui::{
     widgets::{Block, BorderType, List, ListDirection, StatefulWidget},
 };
 
-use crate::kube_data::{NamespaceList, NamespaceListState};
+use crate::kube_data::{NamespaceList, KubeComponentState};
 
 impl StatefulWidget for NamespaceList {
-    type State = NamespaceListState;
+    type State = KubeComponentState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::default().title_alignment(Alignment::Left);
@@ -27,10 +27,10 @@ impl StatefulWidget for NamespaceList {
         // TODO: Make this select the most used namespace?
         //       Or should that re-order the vector?
         //       Should I be using a list or a table for this from Ratatui?
-        if state.ns_list_state.selected() == None {
-            state.ns_list_state.select(Some(0));
+        if state.list_state.selected() == None {
+            state.list_state.select(Some(0));
         }
 
-        list.render(area, buf, &mut state.ns_list_state);
+        list.render(area, buf, &mut state.list_state);
     }
 }

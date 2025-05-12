@@ -35,6 +35,8 @@ pub enum AppEvent {
     Increment,
     /// Decrement the counter.
     Decrement,
+    /// Refresh Kube Data
+    Refresh,
     /// Quit the application.
     Quit,
 }

@@ -1,14 +1,14 @@
 use ratatui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::{Alignment, Constraint, Direction, Layout}, style::{Color, Modifier, Style}, text::{Span, Text}, widgets::{ListState, Paragraph}, DefaultTerminal, Frame
+    DefaultTerminal, Frame,
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    layout::{Alignment, Constraint, Direction, Layout},
+    style::{Color, Modifier, Style},
+    text::{Span, Text},
+    widgets::{Block, Paragraph},
 };
 
 use crate::event::{AppEvent, Event, EventHandler};
 use crate::kube_data::{KubeData, KubeState};
-
-#[derive(Debug, Clone)]
-pub struct Search {
-    input: String,
-}
 
 /// Application.
 pub struct KucoInterface {
@@ -25,6 +25,7 @@ pub struct KucoInterface {
 }
 
 // TODO: Find a better place for this.
+// TODO: Add sub-modes for VIM, etc.
 pub enum KucoMode {
     NS,
     PODS,
@@ -44,16 +45,17 @@ impl KucoInterface {
         }
     }
 
-    pub fn draw(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeState) {
+    pub fn draw_namespace_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeState) {
+        // Set Chunks
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(0)
             .horizontal_margin(1)
             .constraints::<&[Constraint]>(
                 [
-                    Constraint::Length(3),     // header
-                    Constraint::Min(1),        // results list
-                    Constraint::Length(1 + 1), // input
+                    Constraint::Length(3), // header
+                    Constraint::Min(1),    // results list
+                    Constraint::Length(3), // input
                 ]
                 .as_ref(),
             )
@@ -61,8 +63,9 @@ impl KucoInterface {
 
         let title_chunk = chunks[0];
         let results_chunk = chunks[1];
-        let _input_chunk = chunks[2];
+        let input_chunk = chunks[2];
 
+        // Define Header / Title
         let heading_style = Style::new()
             .fg(Color::Black)
             .bg(Color::White)
@@ -73,15 +76,29 @@ impl KucoInterface {
         )))
         .alignment(Alignment::Left);
 
+        // TODO: Input should name itself after cluster context or something?
+        //       There is a chance cluster context name would be too long.
+        let input = format!(
+            "[ SEARCH ] {}",
+            kube_state.namespace_state.search.input.as_str(),
+        );
+        let input = Paragraph::new(input).style(Style::default());
+
+        let input_block =
+            input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
+
         // Render Title
         f.render_widget(&title, title_chunk);
 
         // Render List
         f.render_stateful_widget(
-            self.kube_data.namespace_list.clone(), // TODO: ugh, get rid of this clone later
+            self.kube_data.namespaces.clone(), // TODO: ugh, get rid of this clone later
             results_chunk,
             &mut kube_state.namespace_state,
-        )
+        );
+
+        // Render Input Block
+        f.render_widget(input_block, input_chunk);
     }
 
     /// Run the application's main loop.
@@ -93,7 +110,7 @@ impl KucoInterface {
             match self.mode {
                 KucoMode::NS => {
                     terminal.draw(|frame| {
-                        self.draw(frame, &mut kube_state);
+                        self.draw_namespace_view(frame, &mut kube_state);
                     })?;
                 }
                 KucoMode::PODS => todo!(),
@@ -102,16 +119,17 @@ impl KucoInterface {
             }
 
             match self.events.next().await? {
-                Event::Tick => self.tick().await,
+                Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     crossterm::event::Event::Key(key_event) => {
-                        self.handle_key_events(key_event, &mut kube_state.namespace_state.ns_list_state)?
-                    },
+                        self.handle_key_events(key_event, &mut kube_state)?
+                    }
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
                     AppEvent::Increment => self.increment_counter(),
                     AppEvent::Decrement => self.decrement_counter(),
+                    AppEvent::Refresh => self.kube_data.update_all().await,
                     AppEvent::Quit => self.quit(),
                 },
             }
@@ -121,17 +139,33 @@ impl KucoInterface {
     }
 
     /// Handles the key events and updates the state of [`App`].
-    pub fn handle_key_events(&mut self, key_event: KeyEvent, state: &mut ListState) -> color_eyre::Result<()> {
+    pub fn handle_key_events(
+        &mut self,
+        key_event: KeyEvent,
+        state: &mut KubeState,
+    ) -> color_eyre::Result<()> {
         match key_event.code {
             KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                 self.events.send(AppEvent::Quit)
             }
+
+            // Navigation
             KeyCode::Right => self.events.send(AppEvent::Increment),
             KeyCode::Left => self.events.send(AppEvent::Decrement),
-            KeyCode::Char('k') | KeyCode::Down => state.select_next(),
-            KeyCode::Char('j') | KeyCode::Up => state.select_previous(),
-            // Other handlers you could add here.
+            KeyCode::Up => state.namespace_state.list_state.select_next(),
+            KeyCode::Down => state.namespace_state.list_state.select_previous(),
+
+            // TODO: Add modes for insert, etc., so that `q` doesn't end the program.
+            KeyCode::Char(to_insert) => {
+                state.namespace_state.search.input += &to_insert.to_string()
+            }
+            KeyCode::Backspace => {
+                let s = &mut state.namespace_state.search.input;
+                if s.len() > 0 {
+                    s.truncate(s.len() - 1);
+                }
+            }
             _ => {}
         }
         Ok(())
@@ -141,9 +175,9 @@ impl KucoInterface {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    // TODO: I'm pretty sure this shouldn't be async and awaiting ........ something is very wrong.
-    pub async fn tick(&mut self) {
-        self.kube_data.update_all().await;
+    pub fn tick(&mut self) {
+        // Refresh data every tick
+        self.events.send(AppEvent::Refresh);
     }
 
     /// Set running to false to quit the application.
@@ -159,21 +193,3 @@ impl KucoInterface {
         self.counter = self.counter.saturating_sub(1);
     }
 }
-
-//     // TODO: Input should name itself after cluster context or something.
-//     pub fn build_input(&self) -> Paragraph {
-//         /// Max width of the UI box showing current mode
-//         const MAX_WIDTH: usize = 14;
-//         let (pref, mode) = (" ", "GLOBAL");
-//         let mode_width = MAX_WIDTH - pref.len();
-//         let input = format!("[{pref}{mode:^mode_width$}] {}", self.search.input.as_str(),);
-//         let input = Paragraph::new(input);
-//
-//         input.block(
-//             Block::default()
-//                 .borders(Borders::LEFT | Borders::RIGHT)
-//                 .border_type(BorderType::Rounded)
-//                 .title(format!("{:─>width$}", "", width = 12)),
-//         )
-//     }
-// }
