@@ -39,21 +39,42 @@ async fn get_client() -> Result<Client, KucoBackendError> {
     Ok(client)
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 pub struct NamespaceData {
     pub names: Vec<String>,
 }
 
 impl NamespaceData {
+    pub fn new() -> Self {
+        NamespaceData { names: Vec::new() }
+    }
+
     pub async fn update(&mut self, client: Client) {
         let ns_api_data: Api<Namespace> = Api::all(client);
 
         // List all pods in the namespace.
         let lp = ListParams::default();
-        let ns_list = ns_api_data.list(&lp).await.unwrap();
-        for ns in ns_list.items {
+        let ns_list = ns_api_data.list(&lp).await.unwrap().items;
+
+        // If a namespace was deleted, remove it as well.
+        if ns_list.len() < self.names.len() {
+            let mut replacement_vec: Vec<String> = Vec::new();
+
+            // TODO: find a better way to do this ...
+            for ns in &ns_list {
+                let ns_name = ns.name_any();
+                replacement_vec.push(ns_name);
+            }
+            self.names = replacement_vec;
+        }
+
+        for ns in ns_list {
             let ns_name = ns.name_any();
-            self.names.push(ns_name);
+
+            // If not already in the array, add it.
+            if !self.names.contains(&ns_name) {
+                self.names.push(ns_name);
+            }
         }
     }
 }

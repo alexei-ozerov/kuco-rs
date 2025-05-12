@@ -1,54 +1,17 @@
-use crate::event::{AppEvent, Event, EventHandler};
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    widgets::{Block, BorderType, Borders, ListState, Paragraph},
 };
 
-use crate::kube_data::KubeData;
+use crate::event::{AppEvent, Event, EventHandler};
+use crate::kube_data::{KubeData, KubeState};
 
 #[derive(Debug, Clone)]
 pub struct Search {
     input: String,
 }
 
-pub struct KubeState {
-    pub data: KubeData,
-    pub search: Search,
-    pub ns_list_state: ListState,
-}
-
-impl KubeState {
-    async fn new() -> Self {
-        KubeState {
-            data: KubeData::new().await,
-            search: Search {
-                input: "".to_string(),
-            },
-            ns_list_state: ListState::default(),
-        }
-    }
-
-    // TODO: Input should name itself after cluster context or something.
-    pub fn build_input(&self) -> Paragraph {
-        /// Max width of the UI box showing current mode
-        const MAX_WIDTH: usize = 14;
-        let (pref, mode) = (" ", "GLOBAL");
-        let mode_width = MAX_WIDTH - pref.len();
-        let input = format!("[{pref}{mode:^mode_width$}] {}", self.search.input.as_str(),);
-        let input = Paragraph::new(input);
-
-        input.block(
-            Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT)
-                .border_type(BorderType::Rounded)
-                .title(format!("{:─>width$}", "", width = 12)),
-        )
-    }
-}
-
 /// Application.
-#[derive(Debug)]
 pub struct KucoInterface {
     /// Is the application running?
     pub running: bool,
@@ -56,36 +19,57 @@ pub struct KucoInterface {
     pub counter: u8,
     /// Event handler.
     pub events: EventHandler,
+    /// Kubernetes Data,
+    pub kube_data: KubeData,
+    /// App Mode
+    pub mode: KucoMode,
 }
 
-impl Default for KucoInterface {
-    fn default() -> Self {
-        Self {
-            running: true,
-            counter: 0,
-            events: EventHandler::new(),
-        }
-    }
+// TODO: Find a better place for this.
+pub enum KucoMode {
+    NS,
+    PODS,
+    CONT,
+    LOGS,
 }
 
 impl KucoInterface {
     /// Constructs a new instance of [`App`].
-    pub fn new() -> Self {
-        Self::default()
+    pub async fn new() -> Self {
+        Self {
+            mode: KucoMode::NS,
+            running: true,
+            counter: 0,
+            events: EventHandler::new(),
+            kube_data: KubeData::new().await,
+        }
     }
 
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
-        let mut kube_state = KubeState::new().await;
-        kube_state.data.update_all().await;
+        let mut kube_state = KubeState::new();
+        self.kube_data.update_all().await;
 
         while self.running {
-            terminal.draw(|frame| {
-                frame.render_stateful_widget(&self, frame.area(), &mut kube_state)
-            })?;
-            
+            match self.mode {
+                KucoMode::NS => {
+                    terminal
+                        .draw(|frame| 
+                            frame.render_stateful_widget(
+                                self.kube_data.namespace_list.clone(), // TODO: ugh, get rid of
+                                                                       // this later
+                                frame.area(), 
+                                &mut kube_state.namespace_state
+                                )
+                            )?;
+                }
+                KucoMode::PODS => todo!(),
+                KucoMode::CONT => todo!(),
+                KucoMode::LOGS => todo!(),
+            }
+
             match self.events.next().await? {
-                Event::Tick => self.tick(),
+                Event::Tick => self.tick().await,
                 Event::Crossterm(event) => match event {
                     crossterm::event::Event::Key(key_event) => self.handle_key_events(key_event)?,
                     _ => {}
@@ -120,7 +104,10 @@ impl KucoInterface {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&self) {}
+    // TODO: I'm pretty sure this shouldn't be async and awaiting ........ something is very wrong.
+    pub async fn tick(&mut self) {
+        self.kube_data.update_all().await;
+    }
 
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
@@ -135,3 +122,21 @@ impl KucoInterface {
         self.counter = self.counter.saturating_sub(1);
     }
 }
+
+//     // TODO: Input should name itself after cluster context or something.
+//     pub fn build_input(&self) -> Paragraph {
+//         /// Max width of the UI box showing current mode
+//         const MAX_WIDTH: usize = 14;
+//         let (pref, mode) = (" ", "GLOBAL");
+//         let mode_width = MAX_WIDTH - pref.len();
+//         let input = format!("[{pref}{mode:^mode_width$}] {}", self.search.input.as_str(),);
+//         let input = Paragraph::new(input);
+//
+//         input.block(
+//             Block::default()
+//                 .borders(Borders::LEFT | Borders::RIGHT)
+//                 .border_type(BorderType::Rounded)
+//                 .title(format!("{:─>width$}", "", width = 12)),
+//         )
+//     }
+// }
