@@ -1,6 +1,5 @@
 use ratatui::{
-    DefaultTerminal,
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers}, layout::{Alignment, Constraint, Direction, Layout}, style::{Color, Modifier, Style}, text::{Span, Text}, widgets::{ListState, Paragraph}, DefaultTerminal, Frame
 };
 
 use crate::event::{AppEvent, Event, EventHandler};
@@ -45,6 +44,46 @@ impl KucoInterface {
         }
     }
 
+    pub fn draw(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeState) {
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .margin(0)
+            .horizontal_margin(1)
+            .constraints::<&[Constraint]>(
+                [
+                    Constraint::Length(3),     // header
+                    Constraint::Min(1),        // results list
+                    Constraint::Length(1 + 1), // input
+                ]
+                .as_ref(),
+            )
+            .split(f.area());
+
+        let title_chunk = chunks[0];
+        let results_chunk = chunks[1];
+        let _input_chunk = chunks[2];
+
+        let heading_style = Style::new()
+            .fg(Color::Black)
+            .bg(Color::White)
+            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
+        let title = Paragraph::new(Text::from(Span::styled(
+            format!("KuCo v0.1.0"),
+            heading_style,
+        )))
+        .alignment(Alignment::Left);
+
+        // Render Title
+        f.render_widget(&title, title_chunk);
+
+        // Render List
+        f.render_stateful_widget(
+            self.kube_data.namespace_list.clone(), // TODO: ugh, get rid of this clone later
+            results_chunk,
+            &mut kube_state.namespace_state,
+        )
+    }
+
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeState::new();
@@ -53,15 +92,9 @@ impl KucoInterface {
         while self.running {
             match self.mode {
                 KucoMode::NS => {
-                    terminal
-                        .draw(|frame| 
-                            frame.render_stateful_widget(
-                                self.kube_data.namespace_list.clone(), // TODO: ugh, get rid of
-                                                                       // this later
-                                frame.area(), 
-                                &mut kube_state.namespace_state
-                                )
-                            )?;
+                    terminal.draw(|frame| {
+                        self.draw(frame, &mut kube_state);
+                    })?;
                 }
                 KucoMode::PODS => todo!(),
                 KucoMode::CONT => todo!(),
@@ -71,7 +104,9 @@ impl KucoInterface {
             match self.events.next().await? {
                 Event::Tick => self.tick().await,
                 Event::Crossterm(event) => match event {
-                    crossterm::event::Event::Key(key_event) => self.handle_key_events(key_event)?,
+                    crossterm::event::Event::Key(key_event) => {
+                        self.handle_key_events(key_event, &mut kube_state.namespace_state.ns_list_state)?
+                    },
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
@@ -86,7 +121,7 @@ impl KucoInterface {
     }
 
     /// Handles the key events and updates the state of [`App`].
-    pub fn handle_key_events(&mut self, key_event: KeyEvent) -> color_eyre::Result<()> {
+    pub fn handle_key_events(&mut self, key_event: KeyEvent, state: &mut ListState) -> color_eyre::Result<()> {
         match key_event.code {
             KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
             KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
@@ -94,6 +129,8 @@ impl KucoInterface {
             }
             KeyCode::Right => self.events.send(AppEvent::Increment),
             KeyCode::Left => self.events.send(AppEvent::Decrement),
+            KeyCode::Char('k') | KeyCode::Down => state.select_next(),
+            KeyCode::Char('j') | KeyCode::Up => state.select_previous(),
             // Other handlers you could add here.
             _ => {}
         }
