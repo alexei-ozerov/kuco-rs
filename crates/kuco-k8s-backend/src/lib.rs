@@ -19,7 +19,7 @@ pub enum KucoBackendError {
     Unknown,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct KubeContext {
     pub client: Option<Client>,
 }
