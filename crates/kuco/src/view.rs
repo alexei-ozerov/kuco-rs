@@ -2,10 +2,10 @@ use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
     style::{Style, Stylize},
-    widgets::{Block, List, ListDirection, StatefulWidget},
+    widgets::{Block, HighlightSpacing, List, ListDirection, StatefulWidget},
 };
 
-use crate::app::{KucoViewMode, KucoInteractionMode};
+use crate::app::{KucoInteractionMode, KucoViewMode};
 use crate::data::{KubeComponentState, KubeData};
 
 #[derive(Clone)]
@@ -57,7 +57,9 @@ impl StatefulWidget for KubeWidget {
         let list = List::new(display_list)
             .block(block)
             .style(Style::new().blue())
-            .highlight_style(Style::new().italic())
+            .highlight_style(Style::default().bold().white().on_black())
+            // .highlight_style(Style::new().white())
+            .highlight_spacing(HighlightSpacing::Always)
             .repeat_highlight_symbol(true)
             .direction(ListDirection::BottomToTop);
 

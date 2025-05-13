@@ -4,7 +4,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Span, Text},
-    widgets::{Block, Paragraph},
+    widgets::{Block, BorderType, Paragraph},
 };
 
 use crate::data::KubeWidgetState;
@@ -24,7 +24,6 @@ pub struct KucoInterface {
 }
 
 // TODO: Find a better place for this.
-// TODO: Add sub-modes for VIM, etc.
 #[derive(Clone)]
 pub enum KucoViewMode {
     NS,
@@ -40,7 +39,6 @@ pub enum KucoInteractionMode {
 }
 
 impl KucoInterface {
-    /// Constructs a new instance of [`App`].
     pub async fn new() -> Self {
         Self {
             running: true,
@@ -50,7 +48,7 @@ impl KucoInterface {
         }
     }
 
-    pub fn draw_namespace_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeWidgetState) {
+    pub fn draw_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeWidgetState) {
         // Set Chunks
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -58,9 +56,9 @@ impl KucoInterface {
             .horizontal_margin(1)
             .constraints::<&[Constraint]>(
                 [
-                    Constraint::Length(3), // header
+                    Constraint::Length(1), // header
                     Constraint::Min(1),    // results list
-                    Constraint::Length(3), // input
+                    Constraint::Length(2), // input
                 ]
                 .as_ref(),
             )
@@ -73,15 +71,18 @@ impl KucoInterface {
         let results_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
-                Constraint::Percentage(25),
-                Constraint::Percentage(50),
-                Constraint::Percentage(25),
+                Constraint::Percentage(35),
+                Constraint::Percentage(10),
+                Constraint::Percentage(55),
             ])
             .split(results_aggregate_chunk);
 
-        let results_inner_left = results_inner_chunks[0];
-        let _results_center = results_inner_chunks[1];
-        let _results_inner_right = results_inner_chunks[2];
+        let results_inner_list = results_inner_chunks[0];
+
+        // Mock Up Inner Results Data Pane
+        let results_inner_data = results_inner_chunks[2];
+        let data_block = Block::bordered().border_type(BorderType::Rounded);
+        f.render_widget(data_block, results_inner_data);
 
         // Define Header / Title
         let heading_style = Style::new()
@@ -121,7 +122,7 @@ impl KucoInterface {
         // Render List
         f.render_stateful_widget(
             self.view.clone(), // TODO: ugh, get rid of this clone later
-            results_inner_left,
+            results_inner_list,
             &mut kube_state.namespace_state,
         );
 
@@ -146,7 +147,7 @@ impl KucoInterface {
             match self.view.view_mode {
                 KucoViewMode::NS => {
                     terminal.draw(|frame| {
-                        self.draw_namespace_view(frame, &mut kube_state);
+                        self.draw_view(frame, &mut kube_state);
                     })?;
                 }
                 KucoViewMode::PODS => todo!(),
@@ -189,15 +190,17 @@ impl KucoInterface {
                     }
 
                     // Modes
-                    KeyCode::Char('/') => {
-                        self.view.interact_mode = KucoInteractionMode::SEARCH
-                    }
+                    KeyCode::Char('/') => self.view.interact_mode = KucoInteractionMode::SEARCH,
 
                     // Navigation
                     KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::Increment),
                     KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::Decrement),
-                    KeyCode::Up | KeyCode::Char('k') => state.namespace_state.list_state.select_next(),
-                    KeyCode::Down | KeyCode::Char('j') => state.namespace_state.list_state.select_previous(),
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        state.namespace_state.list_state.select_next()
+                    }
+                    KeyCode::Down | KeyCode::Char('j') => {
+                        state.namespace_state.list_state.select_previous()
+                    }
 
                     _ => {}
                 }
@@ -233,7 +236,7 @@ impl KucoInterface {
                     }
                     _ => {}
                 }
-            },
+            }
         }
         Ok(())
     }
