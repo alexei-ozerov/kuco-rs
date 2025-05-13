@@ -1,11 +1,11 @@
-use kuco::app::KucoInterface;
+use kuco::app::Kuco;
 
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;
 
     let terminal = ratatui::init();
-    let result = KucoInterface::new().await.run(terminal).await;
+    let result = Kuco::new().await.run(terminal).await;
 
     ratatui::restore();
 

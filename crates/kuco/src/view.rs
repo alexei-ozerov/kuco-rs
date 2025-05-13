@@ -5,14 +5,14 @@ use ratatui::{
     widgets::{Block, HighlightSpacing, List, ListDirection, StatefulWidget},
 };
 
-use crate::app::{KucoInteractionMode, KucoViewMode};
+use crate::app::{InteractionMode, ViewMode};
 use crate::data::{KubeComponentState, KubeData};
 
 #[derive(Clone)]
 pub struct KubeWidget {
     pub display: Option<Vec<String>>,
-    pub view_mode: KucoViewMode,
-    pub interact_mode: KucoInteractionMode,
+    pub view_mode: ViewMode,
+    pub interact_mode: InteractionMode,
     pub data: KubeData,
     pub search_mode: bool,
 }
@@ -21,8 +21,8 @@ impl KubeWidget {
     pub async fn new() -> Self {
         KubeWidget {
             display: None,
-            view_mode: KucoViewMode::NS,
-            interact_mode: KucoInteractionMode::NORMAL,
+            view_mode: ViewMode::NS,
+            interact_mode: InteractionMode::NORMAL,
             data: KubeData::new().await,
             search_mode: false,
         }
@@ -32,10 +32,10 @@ impl KubeWidget {
         self.data.update_all().await;
 
         match self.view_mode {
-            KucoViewMode::NS => self.display = Some(self.data.get_namespaces()),
-            KucoViewMode::PODS => todo!(),
-            KucoViewMode::CONT => todo!(),
-            KucoViewMode::LOGS => todo!(),
+            ViewMode::NS => self.display = Some(self.data.get_namespaces()),
+            ViewMode::PODS => todo!(),
+            ViewMode::CONT => todo!(),
+            ViewMode::LOGS => todo!(),
         }
     }
 }
@@ -48,10 +48,10 @@ impl StatefulWidget for KubeWidget {
 
         let mut display_list = Vec::<String>::new();
         match self.view_mode {
-            KucoViewMode::NS => display_list = self.data.namespaces.names,
-            KucoViewMode::PODS => todo!(),
-            KucoViewMode::CONT => todo!(),
-            KucoViewMode::LOGS => todo!(),
+            ViewMode::NS => display_list = self.data.namespaces.names,
+            ViewMode::PODS => todo!(),
+            ViewMode::CONT => todo!(),
+            ViewMode::LOGS => todo!(),
         }
 
         let list = List::new(display_list)

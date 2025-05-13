@@ -12,7 +12,7 @@ use crate::event::{AppEvent, Event, EventHandler};
 use crate::view::KubeWidget;
 
 /// Application.
-pub struct KucoInterface {
+pub struct Kuco {
     /// Is the application running?
     pub running: bool,
     /// Counter.
@@ -25,7 +25,7 @@ pub struct KucoInterface {
 
 // TODO: Find a better place for this.
 #[derive(Clone)]
-pub enum KucoViewMode {
+pub enum ViewMode {
     NS,
     PODS,
     CONT,
@@ -33,12 +33,12 @@ pub enum KucoViewMode {
 }
 
 #[derive(Clone)]
-pub enum KucoInteractionMode {
+pub enum InteractionMode {
     NORMAL,
     SEARCH,
 }
 
-impl KucoInterface {
+impl Kuco {
     pub async fn new() -> Self {
         Self {
             running: true,
@@ -49,7 +49,7 @@ impl KucoInterface {
     }
 
     pub fn draw_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeWidgetState) {
-        // Set Chunks
+        // Setup Screen Layout
         let chunks = Layout::default()
             .direction(Direction::Vertical)
             .margin(0)
@@ -78,9 +78,13 @@ impl KucoInterface {
             .split(results_aggregate_chunk);
 
         let results_inner_list = results_inner_chunks[0];
+        let results_inner_data = results_inner_chunks[2];
+
+
+
+
 
         // Mock Up Inner Results Data Pane
-        let results_inner_data = results_inner_chunks[2];
         let data_block = Block::bordered().border_type(BorderType::Rounded);
         f.render_widget(data_block, results_inner_data);
 
@@ -95,14 +99,13 @@ impl KucoInterface {
         )))
         .alignment(Alignment::Left);
 
-        // TODO: Input should name itself after cluster context or something?
-        //       There is a chance cluster context name would be too long.
+        // Interaction Mode Display
         let mode: &str;
         match self.view.interact_mode {
-            KucoInteractionMode::NORMAL => {
+            InteractionMode::NORMAL => {
                 mode = "NORMAL";
             }
-            KucoInteractionMode::SEARCH => {
+            InteractionMode::SEARCH => {
                 mode = "SEARCH";
             }
         }
@@ -145,14 +148,14 @@ impl KucoInterface {
             }
 
             match self.view.view_mode {
-                KucoViewMode::NS => {
+                ViewMode::NS => {
                     terminal.draw(|frame| {
                         self.draw_view(frame, &mut kube_state);
                     })?;
                 }
-                KucoViewMode::PODS => todo!(),
-                KucoViewMode::CONT => todo!(),
-                KucoViewMode::LOGS => todo!(),
+                ViewMode::PODS => todo!(),
+                ViewMode::CONT => todo!(),
+                ViewMode::LOGS => todo!(),
             }
 
             match self.events.next().await? {
@@ -182,15 +185,18 @@ impl KucoInterface {
         state: &mut KubeWidgetState,
     ) -> color_eyre::Result<()> {
         match self.view.interact_mode {
-            KucoInteractionMode::NORMAL => {
+            InteractionMode::NORMAL => {
                 match key_event.code {
                     KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
                     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                         self.events.send(AppEvent::Quit)
                     }
 
+                    // Refresh 
+                    KeyCode::Char('r') => self.events.send(AppEvent::Refresh),
+
                     // Modes
-                    KeyCode::Char('/') => self.view.interact_mode = KucoInteractionMode::SEARCH,
+                    KeyCode::Char('/') => self.view.interact_mode = InteractionMode::SEARCH,
 
                     // Navigation
                     KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::Increment),
@@ -205,9 +211,10 @@ impl KucoInterface {
                     _ => {}
                 }
             }
-            KucoInteractionMode::SEARCH => {
+            InteractionMode::SEARCH => {
                 match key_event.code {
-                    KeyCode::Esc => self.view.interact_mode = KucoInteractionMode::NORMAL,
+                    KeyCode::Esc => self.view.interact_mode = InteractionMode::NORMAL,
+
                     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                         self.events.send(AppEvent::Quit)
                     }
@@ -218,7 +225,7 @@ impl KucoInterface {
                     KeyCode::Up => state.namespace_state.list_state.select_next(),
                     KeyCode::Down => state.namespace_state.list_state.select_previous(),
 
-                    // TODO: Add modes for insert, etc., so that `q` doesn't end the program.
+                    // Search Entry
                     KeyCode::Char(to_insert) => {
                         // Check if search buffer is clear or not, and swap search state if it is.
                         if state.namespace_state.search.input.len() > 0 {
