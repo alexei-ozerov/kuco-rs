@@ -22,6 +22,10 @@ impl NamespaceList {
             namespaces: NamespaceData::new(),
         }
     }
+
+    pub fn get_namespaces_vector(&self) -> &Vec<String> {
+        &self.namespaces.names
+    }
 }
 
 // Create a generic Kube Component State Structure.

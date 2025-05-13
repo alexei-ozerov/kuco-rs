@@ -22,6 +22,8 @@ pub struct KucoInterface {
     pub kube_data: KubeData,
     /// App Mode
     pub mode: KucoMode,
+    /// Is Searching?
+    pub searching: bool,
 }
 
 // TODO: Find a better place for this.
@@ -42,6 +44,7 @@ impl KucoInterface {
             counter: 0,
             events: EventHandler::new(),
             kube_data: KubeData::new().await,
+            searching: false,
         }
     }
 
@@ -62,8 +65,17 @@ impl KucoInterface {
             .split(f.area());
 
         let title_chunk = chunks[0];
-        let results_chunk = chunks[1];
+        let results_aggregate_chunk = chunks[1];
         let input_chunk = chunks[2];
+
+        let results_inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(25), Constraint::Percentage(50), Constraint::Percentage(25)])
+            .split(results_aggregate_chunk);
+
+        let results_inner_left = results_inner_chunks[0];
+        let results_center = results_inner_chunks[1];
+        let _results_inner_right = results_inner_chunks[2];
 
         // Define Header / Title
         let heading_style = Style::new()
@@ -90,10 +102,24 @@ impl KucoInterface {
         // Render Title
         f.render_widget(&title, title_chunk);
 
+        // Render Random Stuff
+        // TODO: Make this meaningful later ...
+        let mode: &str;
+        if self.searching {
+            mode = "[ MODE ] Searching...";
+        } else {
+            mode = "[ MODE ] Waiting...";
+        }
+
+        let mode_paragraph = Paragraph::new(mode).style(Style::default());
+        let mode_block = mode_paragraph.block(Block::default());
+
+        f.render_widget(mode_block, _results_inner_right);
+
         // Render List
         f.render_stateful_widget(
             self.kube_data.namespaces.clone(), // TODO: ugh, get rid of this clone later
-            results_chunk,
+            results_inner_left,
             &mut kube_state.namespace_state,
         );
 
@@ -107,6 +133,14 @@ impl KucoInterface {
         self.kube_data.update_all().await;
 
         while self.running {
+            // Deactivate search mode when buffer is empty
+            if kube_state.namespace_state.search.input.len() == 0 {
+                self.searching = false;
+            } else {
+                self.searching = true;
+                self.search(&mut kube_state);
+            }
+
             match self.mode {
                 KucoMode::NS => {
                     terminal.draw(|frame| {
@@ -158,17 +192,40 @@ impl KucoInterface {
 
             // TODO: Add modes for insert, etc., so that `q` doesn't end the program.
             KeyCode::Char(to_insert) => {
-                state.namespace_state.search.input += &to_insert.to_string()
+                // Check if search buffer is clear or not, and swap search state if it is.
+                if state.namespace_state.search.input.len() > 0 {
+                    self.searching = true;
+                }
+
+                state.namespace_state.search.input += &to_insert.to_string();
             }
             KeyCode::Backspace => {
                 let s = &mut state.namespace_state.search.input;
                 if s.len() > 0 {
                     s.truncate(s.len() - 1);
+                    state.namespace_state.search.input = s.to_string();
+                }
+
+                if self.searching {
+                    self.events.send(AppEvent::Refresh); // TODO: Replace this with less time consuming approach
                 }
             }
             _ => {}
         }
         Ok(())
+    }
+
+    // TODO: build a better implementation of this ...
+    fn search(&mut self, state: &mut KubeState) {
+        let mut parsed_namespaces = Vec::new();
+        let ns_ref = self.kube_data.namespaces.get_namespaces_vector();
+        ns_ref.iter().for_each(|ns| {
+            if ns.contains(&state.namespace_state.search.input) {
+                parsed_namespaces.push(ns.clone());
+            }
+        });
+
+        self.kube_data.namespaces.namespaces.names = parsed_namespaces;
     }
 
     /// Handles the tick event of the terminal.
@@ -177,7 +234,14 @@ impl KucoInterface {
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
     pub fn tick(&mut self) {
         // Refresh data every tick
-        self.events.send(AppEvent::Refresh);
+        // TODO: Find a better solution to prevent overwriting a current search.
+        //       Perhaps set a mode / app state?
+
+        if self.searching {
+            // Do not send the refresh event ...
+        } else {
+            self.events.send(AppEvent::Refresh);
+        }
     }
 
     /// Set running to false to quit the application.
