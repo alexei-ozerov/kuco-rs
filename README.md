@@ -1,8 +1,8 @@
 # KuCo - Kubernetes Console 
 KuCo is a Kubernetes Console TUI, used for simplifying repetative commands with a friendly interface.
 
-Inspired by (much better) projects such as Atuin, and the Dirtwave M8 Tracker, KuCo aims to combine elements 
-from each to create something which can stave off my RSI from writing `k get po -n... | grep...`.
+Inspired by (much better and more interesting) projects such as [Atuin](https://atuin.sh/), and the [Dirtwave M8 Tracker](https://dirtywave.com/), KuCo aims to combine elements 
+from each to create something which can stave off my RSI from writing `k get po -n... | grep...` constantly.
 
 KuCo's functionality is encapsulated by a set of screens. The way you traverse those screens is wrapped up in 
 a UI element shamelessly stolen from the M8.
@@ -46,10 +46,12 @@ pods, or running tests of adding and deleting resources.
 - kuco-backend-sqlite
 
 ## Technologies Used
-- Sqlite 
-- Rust (Ratatui, SQLx, Tokio, kube-rs)
-- DevBox 
-- KinD
+- [Sqlite](https://sqlite.org/) 
+- Rust ([Ratatui](https://ratatui.rs/), [SQLx](https://github.com/launchbadge/sqlx), [Tokio](https://tokio.rs/), [kube-rs](https://kube.rs/))
+- [DevBox](https://www.jetify.com/devbox) 
+- [KinD](https://kind.sigs.k8s.io/)
+
+[![Built with Devbox](https://www.jetify.com/img/devbox/shield_galaxy.svg)](https://www.jetify.com/devbox/docs/contributor-quickstart/)
 
 ## License
 
