@@ -1,5 +1,3 @@
-use rayon::prelude::*;
-
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -22,16 +20,23 @@ pub struct KucoInterface {
     /// Event handler.
     pub events: EventHandler,
     /// Kube Widget Data
-    pub kube_widget: KubeWidget,
+    pub kube_data: KubeWidget,
 }
+
 // TODO: Find a better place for this.
 // TODO: Add sub-modes for VIM, etc.
 #[derive(Clone)]
-pub enum KucoMode {
+pub enum KucoViewMode {
     NS,
     PODS,
     CONT,
     LOGS,
+}
+
+#[derive(Clone)]
+pub enum KucoInteractionMode {
+    NORMAL,
+    SEARCH,
 }
 
 impl KucoInterface {
@@ -41,7 +46,7 @@ impl KucoInterface {
             running: true,
             counter: 0,
             events: EventHandler::new(),
-            kube_widget: KubeWidget::new().await,
+            kube_data: KubeWidget::new().await,
         }
     }
 
@@ -92,11 +97,15 @@ impl KucoInterface {
         // TODO: Input should name itself after cluster context or something?
         //       There is a chance cluster context name would be too long.
         let mode: &str;
-        if self.kube_widget.search_mode {
-            mode = "SEARCH";
-        } else {
-            mode = "DISPLAY";
+        match self.kube_data.interact_mode {
+            KucoInteractionMode::NORMAL => {
+                mode = "NORMAL";
+            }
+            KucoInteractionMode::SEARCH => {
+                mode = "SEARCH";
+            }
         }
+
         let input = format!(
             "[ {} ] {}",
             mode,
@@ -111,7 +120,7 @@ impl KucoInterface {
 
         // Render List
         f.render_stateful_widget(
-            self.kube_widget.clone(), // TODO: ugh, get rid of this clone later
+            self.kube_data.clone(), // TODO: ugh, get rid of this clone later
             results_inner_left,
             &mut kube_state.namespace_state,
         );
@@ -123,26 +132,26 @@ impl KucoInterface {
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
-        self.kube_widget.update().await;
+        self.kube_data.update().await;
 
         while self.running {
             // Deactivate search mode when buffer is empty
             if kube_state.namespace_state.search.input.len() == 0 {
-                self.kube_widget.search_mode = false;
+                self.kube_data.search_mode = false;
             } else {
                 // self.searching = true;
                 // self.search(&mut kube_state);
             }
 
-            match self.kube_widget.mode {
-                KucoMode::NS => {
+            match self.kube_data.view_mode {
+                KucoViewMode::NS => {
                     terminal.draw(|frame| {
                         self.draw_namespace_view(frame, &mut kube_state);
                     })?;
                 }
-                KucoMode::PODS => todo!(),
-                KucoMode::CONT => todo!(),
-                KucoMode::LOGS => todo!(),
+                KucoViewMode::PODS => todo!(),
+                KucoViewMode::CONT => todo!(),
+                KucoViewMode::LOGS => todo!(),
             }
 
             match self.events.next().await? {
@@ -156,7 +165,7 @@ impl KucoInterface {
                 Event::App(app_event) => match app_event {
                     AppEvent::Increment => self.increment_counter(),
                     AppEvent::Decrement => self.decrement_counter(),
-                    AppEvent::Refresh => self.kube_widget.update().await,
+                    AppEvent::Refresh => self.kube_data.update().await,
                     AppEvent::Quit => self.quit(),
                 },
             }
@@ -171,35 +180,60 @@ impl KucoInterface {
         key_event: KeyEvent,
         state: &mut KubeWidgetState,
     ) -> color_eyre::Result<()> {
-        match key_event.code {
-            KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
-            KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
-                self.events.send(AppEvent::Quit)
-            }
+        match self.kube_data.interact_mode {
+            KucoInteractionMode::NORMAL => {
+                match key_event.code {
+                    KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
+                    KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
+                        self.events.send(AppEvent::Quit)
+                    }
 
-            // Navigation
-            KeyCode::Right => self.events.send(AppEvent::Increment),
-            KeyCode::Left => self.events.send(AppEvent::Decrement),
-            KeyCode::Up => state.namespace_state.list_state.select_next(),
-            KeyCode::Down => state.namespace_state.list_state.select_previous(),
+                    // Modes
+                    KeyCode::Char('/') => {
+                        self.kube_data.interact_mode = KucoInteractionMode::SEARCH
+                    }
 
-            // TODO: Add modes for insert, etc., so that `q` doesn't end the program.
-            KeyCode::Char(to_insert) => {
-                // Check if search buffer is clear or not, and swap search state if it is.
-                if state.namespace_state.search.input.len() > 0 {
-                    // self.searching = true;
-                }
+                    // Navigation
+                    KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::Increment),
+                    KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::Decrement),
+                    KeyCode::Up | KeyCode::Char('k') => state.namespace_state.list_state.select_next(),
+                    KeyCode::Down | KeyCode::Char('j') => state.namespace_state.list_state.select_previous(),
 
-                state.namespace_state.search.input += &to_insert.to_string();
-            }
-            KeyCode::Backspace => {
-                let s = &mut state.namespace_state.search.input;
-                if s.len() > 0 {
-                    s.truncate(s.len() - 1);
-                    state.namespace_state.search.input = s.to_string();
+                    _ => {}
                 }
             }
-            _ => {}
+            KucoInteractionMode::SEARCH => {
+                match key_event.code {
+                    KeyCode::Esc => self.kube_data.interact_mode = KucoInteractionMode::NORMAL,
+                    KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
+                        self.events.send(AppEvent::Quit)
+                    }
+
+                    // Navigation
+                    KeyCode::Right => self.events.send(AppEvent::Increment),
+                    KeyCode::Left => self.events.send(AppEvent::Decrement),
+                    KeyCode::Up => state.namespace_state.list_state.select_next(),
+                    KeyCode::Down => state.namespace_state.list_state.select_previous(),
+
+                    // TODO: Add modes for insert, etc., so that `q` doesn't end the program.
+                    KeyCode::Char(to_insert) => {
+                        // Check if search buffer is clear or not, and swap search state if it is.
+                        if state.namespace_state.search.input.len() > 0 {
+                            // self.searching = true;
+                        }
+
+                        state.namespace_state.search.input += &to_insert.to_string();
+                    }
+                    KeyCode::Backspace => {
+                        let s = &mut state.namespace_state.search.input;
+                        if s.len() > 0 {
+                            s.truncate(s.len() - 1);
+                            state.namespace_state.search.input = s.to_string();
+                        }
+                    }
+                    _ => {}
+                }
+            },
         }
         Ok(())
     }

@@ -5,13 +5,14 @@ use ratatui::{
     widgets::{Block, List, ListDirection, StatefulWidget},
 };
 
-use crate::app::KucoMode;
+use crate::app::{KucoViewMode, KucoInteractionMode};
 use crate::data::{KubeComponentState, KubeData};
 
 #[derive(Clone)]
 pub struct KubeWidget {
     pub display: Option<Vec<String>>,
-    pub mode: KucoMode,
+    pub view_mode: KucoViewMode,
+    pub interact_mode: KucoInteractionMode,
     pub data: KubeData,
     pub search_mode: bool,
 }
@@ -20,7 +21,8 @@ impl KubeWidget {
     pub async fn new() -> Self {
         KubeWidget {
             display: None,
-            mode: KucoMode::NS,
+            view_mode: KucoViewMode::NS,
+            interact_mode: KucoInteractionMode::NORMAL,
             data: KubeData::new().await,
             search_mode: false,
         }
@@ -29,11 +31,11 @@ impl KubeWidget {
     pub async fn update(&mut self) {
         self.data.update_all().await;
 
-        match self.mode {
-            KucoMode::NS => self.display = Some(self.data.get_namespaces()),
-            KucoMode::PODS => todo!(),
-            KucoMode::CONT => todo!(),
-            KucoMode::LOGS => todo!(),
+        match self.view_mode {
+            KucoViewMode::NS => self.display = Some(self.data.get_namespaces()),
+            KucoViewMode::PODS => todo!(),
+            KucoViewMode::CONT => todo!(),
+            KucoViewMode::LOGS => todo!(),
         }
     }
 }
@@ -45,11 +47,11 @@ impl StatefulWidget for KubeWidget {
         let block = Block::default().title_alignment(Alignment::Left);
 
         let mut display_list = Vec::<String>::new();
-        match self.mode {
-            KucoMode::NS => display_list = self.data.namespaces.names,
-            KucoMode::PODS => todo!(),
-            KucoMode::CONT => todo!(),
-            KucoMode::LOGS => todo!(),
+        match self.view_mode {
+            KucoViewMode::NS => display_list = self.data.namespaces.names,
+            KucoViewMode::PODS => todo!(),
+            KucoViewMode::CONT => todo!(),
+            KucoViewMode::LOGS => todo!(),
         }
 
         let list = List::new(display_list)
