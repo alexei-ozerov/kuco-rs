@@ -40,6 +40,11 @@ I've included a DevBox (TODO: add links and all that) configuration which will s
 with Rust, Bacon, Kubectl, Docker, and KinD. You can find additional scripts in the `scripts` repository for deploying test 
 pods, or running tests of adding and deleting resources.
 
+### Project Structure
+- kuco
+- kuco-backend-k8s
+- kuco-backend-sqlite
+
 ## Technologies Used
 - Sqlite 
 - Rust (Ratatui, SQLx, Tokio, kube-rs)
