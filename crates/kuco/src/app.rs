@@ -20,7 +20,7 @@ pub struct KucoInterface {
     /// Event handler.
     pub events: EventHandler,
     /// Kube Widget Data
-    pub kube_data: KubeWidget,
+    pub view: KubeWidget,
 }
 
 // TODO: Find a better place for this.
@@ -46,7 +46,7 @@ impl KucoInterface {
             running: true,
             counter: 0,
             events: EventHandler::new(),
-            kube_data: KubeWidget::new().await,
+            view: KubeWidget::new().await,
         }
     }
 
@@ -97,7 +97,7 @@ impl KucoInterface {
         // TODO: Input should name itself after cluster context or something?
         //       There is a chance cluster context name would be too long.
         let mode: &str;
-        match self.kube_data.interact_mode {
+        match self.view.interact_mode {
             KucoInteractionMode::NORMAL => {
                 mode = "NORMAL";
             }
@@ -120,7 +120,7 @@ impl KucoInterface {
 
         // Render List
         f.render_stateful_widget(
-            self.kube_data.clone(), // TODO: ugh, get rid of this clone later
+            self.view.clone(), // TODO: ugh, get rid of this clone later
             results_inner_left,
             &mut kube_state.namespace_state,
         );
@@ -132,18 +132,18 @@ impl KucoInterface {
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
-        self.kube_data.update().await;
+        self.view.update().await;
 
         while self.running {
             // Deactivate search mode when buffer is empty
             if kube_state.namespace_state.search.input.len() == 0 {
-                self.kube_data.search_mode = false;
+                self.view.search_mode = false;
             } else {
                 // self.searching = true;
                 // self.search(&mut kube_state);
             }
 
-            match self.kube_data.view_mode {
+            match self.view.view_mode {
                 KucoViewMode::NS => {
                     terminal.draw(|frame| {
                         self.draw_namespace_view(frame, &mut kube_state);
@@ -165,7 +165,7 @@ impl KucoInterface {
                 Event::App(app_event) => match app_event {
                     AppEvent::Increment => self.increment_counter(),
                     AppEvent::Decrement => self.decrement_counter(),
-                    AppEvent::Refresh => self.kube_data.update().await,
+                    AppEvent::Refresh => self.view.update().await,
                     AppEvent::Quit => self.quit(),
                 },
             }
@@ -180,7 +180,7 @@ impl KucoInterface {
         key_event: KeyEvent,
         state: &mut KubeWidgetState,
     ) -> color_eyre::Result<()> {
-        match self.kube_data.interact_mode {
+        match self.view.interact_mode {
             KucoInteractionMode::NORMAL => {
                 match key_event.code {
                     KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
@@ -190,7 +190,7 @@ impl KucoInterface {
 
                     // Modes
                     KeyCode::Char('/') => {
-                        self.kube_data.interact_mode = KucoInteractionMode::SEARCH
+                        self.view.interact_mode = KucoInteractionMode::SEARCH
                     }
 
                     // Navigation
@@ -204,7 +204,7 @@ impl KucoInterface {
             }
             KucoInteractionMode::SEARCH => {
                 match key_event.code {
-                    KeyCode::Esc => self.kube_data.interact_mode = KucoInteractionMode::NORMAL,
+                    KeyCode::Esc => self.view.interact_mode = KucoInteractionMode::NORMAL,
                     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                         self.events.send(AppEvent::Quit)
                     }
