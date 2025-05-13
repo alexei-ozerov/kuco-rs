@@ -6,29 +6,11 @@ use ratatui::widgets::ListState;
 
 use kuco_k8s_backend::{KubeContext, NamespaceData, PodData, PodInfo};
 
+
 /*
- * Namespace Data
+ * Create a generic Kube Component State Structure.
  */
 
-// Encapsulate the data coming out of `kuco_k8s_backend` in our own types.
-#[derive(Clone)]
-pub struct NamespaceList {
-    pub namespaces: NamespaceData,
-}
-
-impl NamespaceList {
-    pub fn new() -> Self {
-        Self {
-            namespaces: NamespaceData::new(),
-        }
-    }
-
-    pub fn get_namespaces_vector(&self) -> &Vec<String> {
-        &self.namespaces.names
-    }
-}
-
-// Create a generic Kube Component State Structure.
 // TODO: Move this to a more appropriate location.
 #[derive(Debug, Clone)]
 pub struct Search {
@@ -49,16 +31,16 @@ impl KubeComponentState {
             list_state: ListState::default(),
         }
     }
-
 }
 
 /*
  * Aggregate Kube Data
  */
 
+#[derive(Clone)]
 pub struct KubeData {
     context: KubeContext,
-    pub namespaces: NamespaceList,
+    pub namespaces: NamespaceData,
     pub current_namespace: Option<String>,
     pub pods: PodData,
     pub current_pod: PodInfo,
@@ -70,13 +52,23 @@ impl KubeData {
     pub async fn new() -> Self {
         KubeData {
             context: KubeContext::default(),
-            namespaces: NamespaceList::new(),
+            namespaces: NamespaceData::new(),
             current_namespace: None,
             pods: PodData::default(),
             current_pod: PodInfo::default(),
             container: None,
             current_container: None,
         }
+    }
+
+    pub fn get_namespaces(&mut self) -> Vec<String> {
+        let mut ref_ns_vec = Vec::<String>::new();
+
+        self.namespaces.names.iter().for_each(|ns| {
+            ref_ns_vec.push(ns.to_string());
+        });
+
+        ref_ns_vec
     }
 
     pub async fn update_all(&mut self) {
@@ -92,7 +84,7 @@ impl KubeData {
     }
 
     async fn update_namespaces(&mut self) {
-        self.namespaces.namespaces
+        self.namespaces
             .update(
                 self.context
                     .client
@@ -103,14 +95,14 @@ impl KubeData {
     }
 }
 
-pub struct KubeState {
+pub struct KubeWidgetState {
     pub namespace_state: KubeComponentState,
     pub pods_state: KubeComponentState,
     pub containers_state: KubeComponentState,
     pub logs_state: KubeComponentState,
 }
 
-impl KubeState {
+impl KubeWidgetState {
     pub fn new() -> Self {
         Self {
             namespace_state: KubeComponentState::new(),

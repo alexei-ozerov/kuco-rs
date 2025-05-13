@@ -1,3 +1,6 @@
+use rayon::prelude::*;
+use std::sync::{Arc, Mutex};
+
 use ratatui::{
     DefaultTerminal, Frame,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -8,7 +11,8 @@ use ratatui::{
 };
 
 use crate::event::{AppEvent, Event, EventHandler};
-use crate::kube_data::{KubeData, KubeState};
+use crate::data::{KubeData, KubeWidgetState};
+use crate::view::KubeWidget;
 
 /// Application.
 pub struct KucoInterface {
@@ -24,10 +28,12 @@ pub struct KucoInterface {
     pub mode: KucoMode,
     /// Is Searching?
     pub searching: bool,
+    /// Kube Widget Data
+    pub kube_widget: KubeWidget,
 }
-
 // TODO: Find a better place for this.
 // TODO: Add sub-modes for VIM, etc.
+#[derive(Clone)]
 pub enum KucoMode {
     NS,
     PODS,
@@ -45,10 +51,11 @@ impl KucoInterface {
             events: EventHandler::new(),
             kube_data: KubeData::new().await,
             searching: false,
+            kube_widget: KubeWidget::new().await,
         }
     }
 
-    pub fn draw_namespace_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeState) {
+    pub fn draw_namespace_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeWidgetState) {
         // Set Chunks
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -70,11 +77,15 @@ impl KucoInterface {
 
         let results_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(25), Constraint::Percentage(50), Constraint::Percentage(25)])
+            .constraints(vec![
+                Constraint::Percentage(25),
+                Constraint::Percentage(50),
+                Constraint::Percentage(25),
+            ])
             .split(results_aggregate_chunk);
 
         let results_inner_left = results_inner_chunks[0];
-        let results_center = results_inner_chunks[1];
+        let _results_center = results_inner_chunks[1];
         let _results_inner_right = results_inner_chunks[2];
 
         // Define Header / Title
@@ -90,35 +101,27 @@ impl KucoInterface {
 
         // TODO: Input should name itself after cluster context or something?
         //       There is a chance cluster context name would be too long.
+        let mode: &str;
+        if self.searching {
+            mode = "SEARCH";
+        } else {
+            mode = "DISPLAY";
+        }
         let input = format!(
-            "[ SEARCH ] {}",
+            "[ {} ] {}",
+            mode,
             kube_state.namespace_state.search.input.as_str(),
         );
         let input = Paragraph::new(input).style(Style::default());
-
         let input_block =
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
         // Render Title
         f.render_widget(&title, title_chunk);
 
-        // Render Random Stuff
-        // TODO: Make this meaningful later ...
-        let mode: &str;
-        if self.searching {
-            mode = "[ MODE ] Searching...";
-        } else {
-            mode = "[ MODE ] Waiting...";
-        }
-
-        let mode_paragraph = Paragraph::new(mode).style(Style::default());
-        let mode_block = mode_paragraph.block(Block::default());
-
-        f.render_widget(mode_block, _results_inner_right);
-
         // Render List
         f.render_stateful_widget(
-            self.kube_data.namespaces.clone(), // TODO: ugh, get rid of this clone later
+            self.kube_widget.clone(), // TODO: ugh, get rid of this clone later
             results_inner_left,
             &mut kube_state.namespace_state,
         );
@@ -129,16 +132,17 @@ impl KucoInterface {
 
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
-        let mut kube_state = KubeState::new();
+        let mut kube_state = KubeWidgetState::new();
         self.kube_data.update_all().await;
+        self.kube_widget.update().await;
 
         while self.running {
             // Deactivate search mode when buffer is empty
             if kube_state.namespace_state.search.input.len() == 0 {
                 self.searching = false;
             } else {
-                self.searching = true;
-                self.search(&mut kube_state);
+                // self.searching = true;
+                // self.search(&mut kube_state);
             }
 
             match self.mode {
@@ -176,7 +180,7 @@ impl KucoInterface {
     pub fn handle_key_events(
         &mut self,
         key_event: KeyEvent,
-        state: &mut KubeState,
+        state: &mut KubeWidgetState,
     ) -> color_eyre::Result<()> {
         match key_event.code {
             KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
@@ -194,7 +198,7 @@ impl KucoInterface {
             KeyCode::Char(to_insert) => {
                 // Check if search buffer is clear or not, and swap search state if it is.
                 if state.namespace_state.search.input.len() > 0 {
-                    self.searching = true;
+                    // self.searching = true;
                 }
 
                 state.namespace_state.search.input += &to_insert.to_string();
@@ -216,16 +220,18 @@ impl KucoInterface {
     }
 
     // TODO: build a better implementation of this ...
-    fn search(&mut self, state: &mut KubeState) {
-        let mut parsed_namespaces = Vec::new();
-        let ns_ref = self.kube_data.namespaces.get_namespaces_vector();
-        ns_ref.iter().for_each(|ns| {
+    fn search(&mut self, state: &mut KubeWidgetState) {
+        let ns_ref: &mut Vec<String> = &mut self.kube_widget.data.namespaces.names;
+        let ns_new_arc_ref = Arc::new(Mutex::new(Vec::<String>::new()));
+
+        ns_ref.par_iter_mut().for_each(|ns| {
             if ns.contains(&state.namespace_state.search.input) {
-                parsed_namespaces.push(ns.clone());
+                ns_new_arc_ref.lock().expect("[ERROR] Some multithreading stuff crashed.").push(ns.to_string());
             }
         });
 
-        self.kube_data.namespaces.namespaces.names = parsed_namespaces;
+        let inner: Vec<_> = Arc::try_unwrap(ns_new_arc_ref).unwrap().into_inner().unwrap();
+        self.kube_data.namespaces.names = inner;
     }
 
     /// Handles the tick event of the terminal.
@@ -240,7 +246,7 @@ impl KucoInterface {
         if self.searching {
             // Do not send the refresh event ...
         } else {
-            self.events.send(AppEvent::Refresh);
+            // self.events.send(AppEvent::Refresh);
         }
     }
 
