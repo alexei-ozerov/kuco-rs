@@ -1,0 +1,12 @@
+[package]
+name = "kuco-sqlite-backend"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+uuid = { workspace = true }
+sqlx = { workspace = true, features = ["sqlite", "regexp"] }

@@ -2,7 +2,7 @@ use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
     style::{Style, Stylize},
-    widgets::{Block, BorderType, List, ListDirection, StatefulWidget},
+    widgets::{Block, List, ListDirection, StatefulWidget},
 };
 
 use crate::kube_data::{NamespaceList, KubeComponentState};

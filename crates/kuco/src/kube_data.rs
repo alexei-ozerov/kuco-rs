@@ -4,7 +4,7 @@
 
 use ratatui::widgets::ListState;
 
-use kuco_k8s_backend::{KubeContext, KucoBackendError, NamespaceData, PodData, PodInfo};
+use kuco_k8s_backend::{KubeContext, NamespaceData, PodData, PodInfo};
 
 /*
  * Namespace Data
