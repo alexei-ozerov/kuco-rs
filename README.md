@@ -51,8 +51,6 @@ pods, or running tests of adding and deleting resources.
 - [DevBox](https://www.jetify.com/devbox) 
 - [KinD](https://kind.sigs.k8s.io/)
 
-[![Built with Devbox](https://www.jetify.com/img/devbox/shield_galaxy.svg)](https://www.jetify.com/devbox/docs/contributor-quickstart/)
-
 ## License
 
 Copyright (c) Alexei Ozerov <aozerov.dev@gmail.com>
@@ -60,3 +58,5 @@ Copyright (c) Alexei Ozerov <aozerov.dev@gmail.com>
 This project is licensed under the MIT license ([LICENSE] or <http://opensource.org/licenses/MIT>)
 
 [LICENSE]: ./LICENSE
+
+[![Built with Devbox](https://www.jetify.com/img/devbox/shield_galaxy.svg)](https://www.jetify.com/devbox/docs/contributor-quickstart/)
