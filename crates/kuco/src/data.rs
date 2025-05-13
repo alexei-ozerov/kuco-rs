@@ -6,7 +6,6 @@ use ratatui::widgets::ListState;
 
 use kuco_k8s_backend::{KubeContext, NamespaceData, PodData, PodInfo};
 
-
 /*
  * Create a generic Kube Component State Structure.
  */

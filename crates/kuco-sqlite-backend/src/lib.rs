@@ -2,7 +2,6 @@ use color_eyre::eyre::Result;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
 use std::fs;
 use std::{path::Path, str::FromStr, time::Duration};
-use uuid::Uuid;
 
 #[derive(Debug, Clone)]
 pub struct SqliteStore {

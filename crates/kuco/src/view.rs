@@ -5,8 +5,8 @@ use ratatui::{
     widgets::{Block, List, ListDirection, StatefulWidget},
 };
 
-use crate::data::{KubeData, KubeComponentState};
 use crate::app::KucoMode;
+use crate::data::{KubeComponentState, KubeData};
 
 #[derive(Clone)]
 pub struct KubeWidget {

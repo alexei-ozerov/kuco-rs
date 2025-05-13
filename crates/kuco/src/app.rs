@@ -1,5 +1,4 @@
 use rayon::prelude::*;
-use std::sync::{Arc, Mutex};
 
 use ratatui::{
     DefaultTerminal, Frame,
@@ -10,8 +9,8 @@ use ratatui::{
     widgets::{Block, Paragraph},
 };
 
+use crate::data::KubeWidgetState;
 use crate::event::{AppEvent, Event, EventHandler};
-use crate::data::{KubeData, KubeWidgetState};
 use crate::view::KubeWidget;
 
 /// Application.
@@ -22,12 +21,6 @@ pub struct KucoInterface {
     pub counter: u8,
     /// Event handler.
     pub events: EventHandler,
-    /// Kubernetes Data,
-    pub kube_data: KubeData,
-    /// App Mode
-    pub mode: KucoMode,
-    /// Is Searching?
-    pub searching: bool,
     /// Kube Widget Data
     pub kube_widget: KubeWidget,
 }
@@ -45,12 +38,9 @@ impl KucoInterface {
     /// Constructs a new instance of [`App`].
     pub async fn new() -> Self {
         Self {
-            mode: KucoMode::NS,
             running: true,
             counter: 0,
             events: EventHandler::new(),
-            kube_data: KubeData::new().await,
-            searching: false,
             kube_widget: KubeWidget::new().await,
         }
     }
@@ -102,7 +92,7 @@ impl KucoInterface {
         // TODO: Input should name itself after cluster context or something?
         //       There is a chance cluster context name would be too long.
         let mode: &str;
-        if self.searching {
+        if self.kube_widget.search_mode {
             mode = "SEARCH";
         } else {
             mode = "DISPLAY";
@@ -133,19 +123,18 @@ impl KucoInterface {
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
-        self.kube_data.update_all().await;
         self.kube_widget.update().await;
 
         while self.running {
             // Deactivate search mode when buffer is empty
             if kube_state.namespace_state.search.input.len() == 0 {
-                self.searching = false;
+                self.kube_widget.search_mode = false;
             } else {
                 // self.searching = true;
                 // self.search(&mut kube_state);
             }
 
-            match self.mode {
+            match self.kube_widget.mode {
                 KucoMode::NS => {
                     terminal.draw(|frame| {
                         self.draw_namespace_view(frame, &mut kube_state);
@@ -167,7 +156,7 @@ impl KucoInterface {
                 Event::App(app_event) => match app_event {
                     AppEvent::Increment => self.increment_counter(),
                     AppEvent::Decrement => self.decrement_counter(),
-                    AppEvent::Refresh => self.kube_data.update_all().await,
+                    AppEvent::Refresh => self.kube_widget.update().await,
                     AppEvent::Quit => self.quit(),
                 },
             }
@@ -209,10 +198,6 @@ impl KucoInterface {
                     s.truncate(s.len() - 1);
                     state.namespace_state.search.input = s.to_string();
                 }
-
-                if self.searching {
-                    self.events.send(AppEvent::Refresh); // TODO: Replace this with less time consuming approach
-                }
             }
             _ => {}
         }
@@ -221,34 +206,24 @@ impl KucoInterface {
 
     // TODO: build a better implementation of this ...
     fn search(&mut self, state: &mut KubeWidgetState) {
-        let ns_ref: &mut Vec<String> = &mut self.kube_widget.data.namespaces.names;
-        let ns_new_arc_ref = Arc::new(Mutex::new(Vec::<String>::new()));
-
-        ns_ref.par_iter_mut().for_each(|ns| {
-            if ns.contains(&state.namespace_state.search.input) {
-                ns_new_arc_ref.lock().expect("[ERROR] Some multithreading stuff crashed.").push(ns.to_string());
-            }
-        });
-
-        let inner: Vec<_> = Arc::try_unwrap(ns_new_arc_ref).unwrap().into_inner().unwrap();
-        self.kube_data.namespaces.names = inner;
+        // let ns_ref: &mut Vec<String> = &mut self.kube_widget.data.namespaces.names;
+        // let ns_new_arc_ref = Arc::new(Mutex::new(Vec::<String>::new()));
+        //
+        // ns_ref.par_iter_mut().for_each(|ns| {
+        //     if ns.contains(&state.namespace_state.search.input) {
+        //         ns_new_arc_ref.lock().expect("[ERROR] Some multithreading stuff crashed.").push(ns.to_string());
+        //     }
+        // });
+        //
+        // let inner: Vec<_> = Arc::try_unwrap(ns_new_arc_ref).unwrap().into_inner().unwrap();
+        // self.kube_data.namespaces.names = inner;
     }
 
     /// Handles the tick event of the terminal.
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {
-        // Refresh data every tick
-        // TODO: Find a better solution to prevent overwriting a current search.
-        //       Perhaps set a mode / app state?
-
-        if self.searching {
-            // Do not send the refresh event ...
-        } else {
-            // self.events.send(AppEvent::Refresh);
-        }
-    }
+    pub fn tick(&mut self) {}
 
     /// Set running to false to quit the application.
     pub fn quit(&mut self) {
