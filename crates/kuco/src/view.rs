@@ -32,10 +32,16 @@ impl KubeWidget {
         self.data.update_all().await;
 
         match self.view_mode {
-            ViewMode::NS => self.display = Some(self.data.get_namespaces()),
-            ViewMode::PODS => self.display = Some(self.data.get_namespaces()),
-            ViewMode::CONT => self.display = Some(self.data.get_namespaces()),
-            ViewMode::LOGS => self.display = Some(self.data.get_namespaces()),
+            ViewMode::NS => {
+                self.data.update_namespaces().await;
+                self.display = Some(self.data.get_namespaces())
+            }
+            ViewMode::PODS => {
+                self.data.update_pods().await;
+                self.display = Some(self.data.get_pods())
+            },
+            ViewMode::CONT => self.display = Some(self.data.get_pods()),
+            ViewMode::LOGS => self.display = Some(self.data.get_pods()),
         }
     }
 }
@@ -46,27 +52,25 @@ impl StatefulWidget for KubeWidget {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::default().title_alignment(Alignment::Left);
 
-        let mut display_list = Vec::<String>::new();
+        let display_list: Vec<String>;
         match self.view_mode {
             ViewMode::NS => display_list = self.data.namespaces.names,
-            ViewMode::PODS => display_list = self.data.namespaces.names, // TODO: Update to PODS 
-            ViewMode::CONT => display_list = self.data.namespaces.names, // TODO: Update to CONT 
-            ViewMode::LOGS => display_list = self.data.namespaces.names, // TODO: Update to LOGS
+            ViewMode::PODS => display_list = self.data.pods_list,
+            ViewMode::CONT => display_list = self.data.pods_list, // TODO: Update to CONT
+            ViewMode::LOGS => display_list = self.data.pods_list, // TODO: Update to LOGS
         }
 
         let list = List::new(display_list)
             .block(block)
             .style(Style::new().blue())
             .highlight_style(Style::default().bold().white().on_black())
-            // .highlight_style(Style::new().white())
+            .highlight_symbol(">")
             .highlight_spacing(HighlightSpacing::Always)
             .repeat_highlight_symbol(true)
             .direction(ListDirection::BottomToTop);
 
         // Select first item in index automatically
-        // TODO: Make this select the most used namespace?
-        //       Or should that re-order the vector?
-        //       Should I be using a list or a table for this from Ratatui?
+        // TODO: Make this select the most used namespace
         if state.list_state.selected() == None {
             state.list_state.select(Some(0));
         }

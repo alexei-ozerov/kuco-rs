@@ -16,6 +16,7 @@ pub struct Search {
     pub input: String,
 }
 
+#[derive(Clone, Debug)]
 pub struct KubeComponentState {
     pub list_state: ListState,
     pub search: Search,
@@ -41,6 +42,7 @@ pub struct KubeData {
     context: KubeContext,
     pub namespaces: NamespaceData,
     pub current_namespace: Option<String>,
+    pub pods_list: Vec<String>,
     pub pods: PodData,
     pub current_pod: PodInfo,
     pub container: Option<String>,
@@ -53,6 +55,7 @@ impl KubeData {
             context: KubeContext::default(),
             namespaces: NamespaceData::new(),
             current_namespace: None,
+            pods_list: Vec::new(),
             pods: PodData::default(),
             current_pod: PodInfo::default(),
             container: None,
@@ -70,9 +73,21 @@ impl KubeData {
         ref_ns_vec
     }
 
+    pub fn get_pods(&mut self) -> Vec<String> {
+        let ref_pods_vec = self
+            .pods
+            .list
+            .iter()
+            .map(|po| po.name.to_string())
+            .collect();
+
+        ref_pods_vec
+    }
+
     pub async fn update_all(&mut self) {
         self.update_context().await;
         self.update_namespaces().await;
+        self.update_pods().await;
     }
 
     async fn update_context(&mut self) {
@@ -82,7 +97,7 @@ impl KubeData {
         }
     }
 
-    async fn update_namespaces(&mut self) {
+    pub async fn update_namespaces(&mut self) {
         self.namespaces
             .update(
                 self.context
@@ -92,8 +107,32 @@ impl KubeData {
             )
             .await;
     }
+
+    // Update PodData object and Pods List Vector
+    pub async fn update_pods(&mut self) {
+        let ns: String;
+
+        match &self.current_namespace {
+            Some(s) => ns = s.to_owned(),
+            None => ns = "default".to_owned(),
+        };
+
+        let _ = self
+            .pods
+            .update_all(
+                self.context
+                    .client
+                    .clone() // TODO: check if there is a way to avoid cloning ...
+                    .expect("[ERROR] Client is None."),
+                &ns,
+            )
+            .await;
+
+        self.pods_list = self.get_pods();
+    }
 }
 
+#[derive(Debug)]
 pub struct KubeWidgetState {
     pub namespace_state: KubeComponentState,
     pub pods_state: KubeComponentState,

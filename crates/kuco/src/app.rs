@@ -1,13 +1,9 @@
 use ratatui::{
-    DefaultTerminal, Frame,
+    DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
-    layout::{Alignment, Constraint, Direction, Layout},
-    style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Block, BorderType, Paragraph},
 };
 
-use crate::data::KubeWidgetState;
+use crate::data::{KubeComponentState, KubeWidgetState};
 use crate::event::{AppEvent, Event, EventHandler};
 use crate::view::KubeWidget;
 
@@ -24,7 +20,7 @@ pub struct Kuco {
 }
 
 // TODO: Find a better place for this.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum ViewMode {
     NS,
     PODS,
@@ -32,7 +28,7 @@ pub enum ViewMode {
     LOGS,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum InteractionMode {
     NORMAL,
     SEARCH,
@@ -48,177 +44,45 @@ impl Kuco {
         }
     }
 
-    pub fn draw_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeWidgetState) {
-        // Setup Screen Layout
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .margin(0)
-            .horizontal_margin(1)
-            .constraints::<&[Constraint]>(
-                [
-                    Constraint::Length(1), // header
-                    Constraint::Min(1),    // results list
-                    Constraint::Length(3), // input
-                ]
-                .as_ref(),
-            )
-            .split(f.area());
-
-        let top_chunk = chunks[0];
-
-        // Results (Middle) Layout
-        let mid_chunk = chunks[1];
-        let results_inner_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Percentage(35),
-                Constraint::Percentage(10),
-                Constraint::Percentage(55),
-            ])
-            .split(mid_chunk);
-        let mid_inner_list = results_inner_chunks[0];
-        let mid_inner_data = results_inner_chunks[2];
-
-        // Input (Bottom) Layout
-        let bot_chunk = chunks[2];
-        let input_inner_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Percentage(35),
-                Constraint::Percentage(10),
-                Constraint::Percentage(50),
-                Constraint::Percentage(5),
-            ])
-            .split(bot_chunk);
-        let input_inner_navigation = input_inner_chunks[2];
-
-        // Navigation
-        let _nav_row_1 = vec![" ", "S", "A", " "];
-        let _nav_row_2 = vec!["N", "P", "C", "L"];
-        let _nav_row_3 = vec![" ", "D", "D", " "];
-
-        let nav_line: Line;
-        match self.view.view_mode {
-            ViewMode::NS => {
-                nav_line = Line::from(vec![
-                    Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" P C L"),
-                ]);
-            }
-            ViewMode::PODS => {
-                nav_line = Line::from(vec![
-                    Span::from("N "),
-                    Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" C L"),
-                ]);
-            }
-            ViewMode::CONT => {
-                nav_line = Line::from(vec![
-                    Span::from("N P "),
-                    Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" L"),
-                ]);
-            }
-            ViewMode::LOGS => {
-                nav_line = Line::from(vec![
-                    Span::from("N P C "),
-                    Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
-                ]);
-            }
-        }
-
-        // TODO: So much wrong here ... this is just a mock-up.
-        let top_nav_line = Line::from(Span::from("  S A  "));
-        let bot_nav_line = Line::from(Span::from("  D D  "));
-        let nav_text: Vec<Line<'_>> = vec![top_nav_line.into(), nav_line, bot_nav_line.into()];
-        let nav = Paragraph::new(nav_text).alignment(Alignment::Right);
-        f.render_widget(nav, input_inner_navigation);
-
-        // Mock Up Inner Results Data Pane
-        // let data_block = Block::bordered().border_type(BorderType::Rounded);
-        // f.render_widget(data_block, results_inner_data);
-
-        // Define Header / Title
-        let heading_style = Style::new()
-            .fg(Color::Black)
-            .bg(Color::White)
-            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
-        let title = Paragraph::new(Text::from(Span::styled(
-            format!("KuCo v0.1.0"),
-            heading_style,
-        )))
-        .alignment(Alignment::Left);
-
-        // Interaction Mode Display
-        let mode: &str;
-        match self.view.interact_mode {
-            InteractionMode::NORMAL => {
-                mode = "NORMAL";
-            }
-            InteractionMode::SEARCH => {
-                mode = "SEARCH";
-            }
-        }
-
-        let input = format!(
-            "[ {} ] {}",
-            mode,
-            kube_state.namespace_state.search.input.as_str(),
-        );
-        let input = Paragraph::new(input).style(Style::default());
-        let input_block =
-            input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
-
-        // Render Title
-        f.render_widget(&title, top_chunk);
-
-        // Render List
-        f.render_stateful_widget(
-            self.view.clone(), // TODO: ugh, get rid of this clone later
-            mid_inner_list,
-            &mut kube_state.namespace_state,
-        );
-
-        // Render Input Block
-        f.render_widget(input_block, bot_chunk);
-    }
-
     /// Run the application's main loop.
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
+
         self.view.update().await;
 
         while self.running {
-            // Deactivate search mode when buffer is empty
-            if kube_state.namespace_state.search.input.len() == 0 {
-                self.view.search_mode = false;
-            } else {
-                // self.searching = true;
-                // self.search(&mut kube_state);
-            }
-
+            // Set Mode-Specific Data
+            let mut mode_state: KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
-                    terminal.draw(|frame| {
-                        self.draw_view(frame, &mut kube_state);
-                    })?;
+                    if kube_state.namespace_state.list_state.selected() == None {
+                        kube_state.namespace_state.list_state.select_first();
+                    }
+                    mode_state = kube_state.namespace_state.clone();
                 }
                 ViewMode::PODS => {
-                    terminal.draw(|frame| {
-                        self.draw_view(frame, &mut kube_state);
-                    })?;
+                    if kube_state.pods_state.list_state.selected() == None {
+                        kube_state.pods_state.list_state.select_first();
+                    }
+                    mode_state = kube_state.pods_state.clone();
                 }
                 ViewMode::CONT => {
-                    terminal.draw(|frame| {
-                        self.draw_view(frame, &mut kube_state);
-                    })?;
+                    if kube_state.containers_state.list_state.selected() == None {
+                        kube_state.containers_state.list_state.select_first();
+                    }
+                    mode_state = kube_state.containers_state.clone();
                 }
                 ViewMode::LOGS => {
-                    terminal.draw(|frame| {
-                        self.draw_view(frame, &mut kube_state);
-                    })?;
+                    if kube_state.logs_state.list_state.selected() == None {
+                        kube_state.logs_state.list_state.select_first();
+                    }
+                    mode_state = kube_state.logs_state.clone();
                 }
             }
+
+            terminal.draw(|frame| {
+                self.draw_view(frame, &mut mode_state.clone());
+            })?;
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
@@ -229,12 +93,13 @@ impl Kuco {
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
-                    AppEvent::Increment => self.increment_counter(),
-                    AppEvent::Decrement => self.decrement_counter(),
                     AppEvent::Refresh => self.view.update().await,
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
-                        ViewMode::NS => self.view.view_mode = ViewMode::PODS,
+                        ViewMode::NS => {
+                            self.transition_ns_to_pod_view(&mut kube_state.namespace_state)
+                                .await;
+                        }
                         ViewMode::PODS => self.view.view_mode = ViewMode::CONT,
                         ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
                         ViewMode::LOGS => {}
@@ -258,6 +123,13 @@ impl Kuco {
         key_event: KeyEvent,
         state: &mut KubeWidgetState,
     ) -> color_eyre::Result<()> {
+        let mode_state: &mut KubeComponentState;
+        match self.view.view_mode {
+            ViewMode::NS => mode_state = &mut state.namespace_state,
+            ViewMode::PODS => mode_state = &mut state.pods_state,
+            ViewMode::CONT => mode_state = &mut state.containers_state,
+            ViewMode::LOGS => mode_state = &mut state.logs_state,
+        }
         match self.view.interact_mode {
             InteractionMode::NORMAL => {
                 match key_event.code {
@@ -275,12 +147,8 @@ impl Kuco {
                     // Navigation
                     KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::NavRight),
                     KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::NavLeft),
-                    KeyCode::Up | KeyCode::Char('k') => {
-                        state.namespace_state.list_state.select_next()
-                    }
-                    KeyCode::Down | KeyCode::Char('j') => {
-                        state.namespace_state.list_state.select_previous()
-                    }
+                    KeyCode::Up | KeyCode::Char('k') => mode_state.list_state.select_next(),
+                    KeyCode::Down | KeyCode::Char('j') => mode_state.list_state.select_previous(),
 
                     _ => {}
                 }
@@ -323,7 +191,7 @@ impl Kuco {
     }
 
     // TODO: build a better implementation of this ...
-    fn search(&mut self, state: &mut KubeWidgetState) {
+    fn _search(&mut self, _state: &mut KubeWidgetState) {
         // let ns_ref: &mut Vec<String> = &mut self.kube_widget.data.namespaces.names;
         // let ns_new_arc_ref = Arc::new(Mutex::new(Vec::<String>::new()));
         //
@@ -348,11 +216,25 @@ impl Kuco {
         self.running = false;
     }
 
-    pub fn increment_counter(&mut self) {
-        self.counter = self.counter.saturating_add(1);
+    pub fn refresh_namespace_selection(&mut self, component_state: &KubeComponentState) {
+        let ns_index = component_state.list_state.selected();
+        let ns_list = &self.view.display.as_ref().unwrap();
+        let ns = &ns_list[ns_index.unwrap()];
+
+        // Select Namespace
+        self.view.data.current_namespace = Some(ns.clone());
     }
 
-    pub fn decrement_counter(&mut self) {
-        self.counter = self.counter.saturating_sub(1);
+    pub async fn transition_ns_to_pod_view(&mut self, component_state: &KubeComponentState) {
+        self.refresh_namespace_selection(component_state); // Update Current Namespace
+        self.view.update().await; // Update View
+        self.view.data.pods_list = self.view.data.get_pods(); // Update Pods List
+        self.view.view_mode = ViewMode::PODS;
+
+        tracing::debug!("--- Refresh Event Start ---");
+        tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
+        tracing::debug!("Pods List: {:#?}", self.view.data.pods_list);
+        tracing::debug!("Pods Data: {:#?}", self.view.data.pods);
+        tracing::debug!("--- Refresh Event End ---");
     }
 }
