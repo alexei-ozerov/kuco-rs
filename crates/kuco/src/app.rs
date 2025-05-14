@@ -3,7 +3,7 @@ use ratatui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Span, Text},
+    text::{Line, Span, Text},
     widgets::{Block, BorderType, Paragraph},
 };
 
@@ -58,16 +58,16 @@ impl Kuco {
                 [
                     Constraint::Length(1), // header
                     Constraint::Min(1),    // results list
-                    Constraint::Length(2), // input
+                    Constraint::Length(3), // input
                 ]
                 .as_ref(),
             )
             .split(f.area());
 
-        let title_chunk = chunks[0];
-        let results_aggregate_chunk = chunks[1];
-        let input_chunk = chunks[2];
+        let top_chunk = chunks[0];
 
+        // Results (Middle) Layout
+        let mid_chunk = chunks[1];
         let results_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
@@ -75,18 +75,68 @@ impl Kuco {
                 Constraint::Percentage(10),
                 Constraint::Percentage(55),
             ])
-            .split(results_aggregate_chunk);
+            .split(mid_chunk);
+        let mid_inner_list = results_inner_chunks[0];
+        let mid_inner_data = results_inner_chunks[2];
 
-        let results_inner_list = results_inner_chunks[0];
-        let results_inner_data = results_inner_chunks[2];
+        // Input (Bottom) Layout
+        let bot_chunk = chunks[2];
+        let input_inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![
+                Constraint::Percentage(35),
+                Constraint::Percentage(10),
+                Constraint::Percentage(50),
+                Constraint::Percentage(5),
+            ])
+            .split(bot_chunk);
+        let input_inner_navigation = input_inner_chunks[2];
 
+        // Navigation
+        let _nav_row_1 = vec![" ", "S", "A", " "];
+        let _nav_row_2 = vec!["N", "P", "C", "L"];
+        let _nav_row_3 = vec![" ", "D", "D", " "];
 
+        let nav_line: Line;
+        match self.view.view_mode {
+            ViewMode::NS => {
+                nav_line = Line::from(vec![
+                    Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
+                    Span::from(" P C L"),
+                ]);
+            }
+            ViewMode::PODS => {
+                nav_line = Line::from(vec![
+                    Span::from("N "),
+                    Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
+                    Span::from(" C L"),
+                ]);
+            }
+            ViewMode::CONT => {
+                nav_line = Line::from(vec![
+                    Span::from("N P "),
+                    Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
+                    Span::from(" L"),
+                ]);
+            }
+            ViewMode::LOGS => {
+                nav_line = Line::from(vec![
+                    Span::from("N P C "),
+                    Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
+                ]);
+            }
+        }
 
-
+        // TODO: So much wrong here ... this is just a mock-up.
+        let top_nav_line = Line::from(Span::from("  S A  "));
+        let bot_nav_line = Line::from(Span::from("  D D  "));
+        let nav_text: Vec<Line<'_>> = vec![top_nav_line.into(), nav_line, bot_nav_line.into()];
+        let nav = Paragraph::new(nav_text).alignment(Alignment::Right);
+        f.render_widget(nav, input_inner_navigation);
 
         // Mock Up Inner Results Data Pane
-        let data_block = Block::bordered().border_type(BorderType::Rounded);
-        f.render_widget(data_block, results_inner_data);
+        // let data_block = Block::bordered().border_type(BorderType::Rounded);
+        // f.render_widget(data_block, results_inner_data);
 
         // Define Header / Title
         let heading_style = Style::new()
@@ -120,17 +170,17 @@ impl Kuco {
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
         // Render Title
-        f.render_widget(&title, title_chunk);
+        f.render_widget(&title, top_chunk);
 
         // Render List
         f.render_stateful_widget(
             self.view.clone(), // TODO: ugh, get rid of this clone later
-            results_inner_list,
+            mid_inner_list,
             &mut kube_state.namespace_state,
         );
 
         // Render Input Block
-        f.render_widget(input_block, input_chunk);
+        f.render_widget(input_block, bot_chunk);
     }
 
     /// Run the application's main loop.
@@ -153,9 +203,21 @@ impl Kuco {
                         self.draw_view(frame, &mut kube_state);
                     })?;
                 }
-                ViewMode::PODS => todo!(),
-                ViewMode::CONT => todo!(),
-                ViewMode::LOGS => todo!(),
+                ViewMode::PODS => {
+                    terminal.draw(|frame| {
+                        self.draw_view(frame, &mut kube_state);
+                    })?;
+                }
+                ViewMode::CONT => {
+                    terminal.draw(|frame| {
+                        self.draw_view(frame, &mut kube_state);
+                    })?;
+                }
+                ViewMode::LOGS => {
+                    terminal.draw(|frame| {
+                        self.draw_view(frame, &mut kube_state);
+                    })?;
+                }
             }
 
             match self.events.next().await? {
@@ -171,6 +233,18 @@ impl Kuco {
                     AppEvent::Decrement => self.decrement_counter(),
                     AppEvent::Refresh => self.view.update().await,
                     AppEvent::Quit => self.quit(),
+                    AppEvent::NavRight => match self.view.view_mode {
+                        ViewMode::NS => self.view.view_mode = ViewMode::PODS,
+                        ViewMode::PODS => self.view.view_mode = ViewMode::CONT,
+                        ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
+                        ViewMode::LOGS => {}
+                    },
+                    AppEvent::NavLeft => match self.view.view_mode {
+                        ViewMode::NS => {}
+                        ViewMode::PODS => self.view.view_mode = ViewMode::NS,
+                        ViewMode::CONT => self.view.view_mode = ViewMode::PODS,
+                        ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
+                    },
                 },
             }
         }
@@ -192,15 +266,15 @@ impl Kuco {
                         self.events.send(AppEvent::Quit)
                     }
 
-                    // Refresh 
+                    // Refresh
                     KeyCode::Char('r') => self.events.send(AppEvent::Refresh),
 
                     // Modes
                     KeyCode::Char('/') => self.view.interact_mode = InteractionMode::SEARCH,
 
                     // Navigation
-                    KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::Increment),
-                    KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::Decrement),
+                    KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::NavRight),
+                    KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::NavLeft),
                     KeyCode::Up | KeyCode::Char('k') => {
                         state.namespace_state.list_state.select_next()
                     }
@@ -220,8 +294,8 @@ impl Kuco {
                     }
 
                     // Navigation
-                    KeyCode::Right => self.events.send(AppEvent::Increment),
-                    KeyCode::Left => self.events.send(AppEvent::Decrement),
+                    KeyCode::Right => self.events.send(AppEvent::NavRight),
+                    KeyCode::Left => self.events.send(AppEvent::NavLeft),
                     KeyCode::Up => state.namespace_state.list_state.select_next(),
                     KeyCode::Down => state.namespace_state.list_state.select_previous(),
 

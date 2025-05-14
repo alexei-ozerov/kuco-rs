@@ -33,9 +33,9 @@ impl KubeWidget {
 
         match self.view_mode {
             ViewMode::NS => self.display = Some(self.data.get_namespaces()),
-            ViewMode::PODS => todo!(),
-            ViewMode::CONT => todo!(),
-            ViewMode::LOGS => todo!(),
+            ViewMode::PODS => self.display = Some(self.data.get_namespaces()),
+            ViewMode::CONT => self.display = Some(self.data.get_namespaces()),
+            ViewMode::LOGS => self.display = Some(self.data.get_namespaces()),
         }
     }
 }
@@ -49,9 +49,9 @@ impl StatefulWidget for KubeWidget {
         let mut display_list = Vec::<String>::new();
         match self.view_mode {
             ViewMode::NS => display_list = self.data.namespaces.names,
-            ViewMode::PODS => todo!(),
-            ViewMode::CONT => todo!(),
-            ViewMode::LOGS => todo!(),
+            ViewMode::PODS => display_list = self.data.namespaces.names, // TODO: Update to PODS 
+            ViewMode::CONT => display_list = self.data.namespaces.names, // TODO: Update to CONT 
+            ViewMode::LOGS => display_list = self.data.namespaces.names, // TODO: Update to LOGS
         }
 
         let list = List::new(display_list)

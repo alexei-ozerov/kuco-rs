@@ -39,6 +39,8 @@ pub enum AppEvent {
     Refresh,
     /// Quit the application.
     Quit,
+    NavRight,
+    NavLeft,
 }
 
 /// Terminal event handler.
