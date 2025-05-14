@@ -8,7 +8,6 @@ use kube::{
 };
 
 use serde::{Deserialize, Serialize};
-use std::env;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -148,9 +147,28 @@ impl PodInfo {
 #[derive(Deserialize, Serialize, Clone, Debug, Default)]
 pub struct PodData {
     pub list: Vec<PodInfo>,
+    pub names: Vec<String>,
 }
 
 impl PodData {
+    pub async fn get_names(&mut self, client: Client, namespace: &str) -> Result<(), kube::Error> {
+        let pods: Api<Pod> = Api::namespaced(client.clone(), &namespace);
+
+        // List all pods in the namespace.
+        let lp = ListParams::default();
+        let pod_list = pods.list(&lp).await?;
+
+        let mut pod_name_list: Vec<String> = Vec::new();
+        for pod in pod_list.items {
+            let pod_name = pod.name_any();
+            pod_name_list.push(pod_name);
+        }
+
+        self.names = pod_name_list;
+
+        Ok(())
+    }
+
     pub async fn update_all(&mut self, client: Client, namespace: &str) -> Result<(), kube::Error> {
         // Get a reference to the Pod API within the specified namespace.
         let pods: Api<Pod> = Api::namespaced(client.clone(), &namespace);
@@ -214,7 +232,6 @@ impl PodData {
                 replicas,
                 desired_replicas,
             });
-
         }
 
         self.list = pod_info_list;
@@ -222,4 +239,3 @@ impl PodData {
         Ok(())
     }
 }
-

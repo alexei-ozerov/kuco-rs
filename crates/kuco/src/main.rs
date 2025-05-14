@@ -1,8 +1,6 @@
 use kuco::app::Kuco;
 use kuco::tracing::init_tracing;
 
-use tracing::info;
-
 #[tokio::main]
 async fn main() -> color_eyre::Result<()> {
     color_eyre::install()?;

@@ -37,9 +37,9 @@ impl KubeWidget {
                 self.display = Some(self.data.get_namespaces())
             }
             ViewMode::PODS => {
-                self.data.update_pods().await;
+                self.data.update_pods_names_list().await;
                 self.display = Some(self.data.get_pods())
-            },
+            }
             ViewMode::CONT => self.display = Some(self.data.get_pods()),
             ViewMode::LOGS => self.display = Some(self.data.get_pods()),
         }
@@ -55,9 +55,9 @@ impl StatefulWidget for KubeWidget {
         let display_list: Vec<String>;
         match self.view_mode {
             ViewMode::NS => display_list = self.data.namespaces.names,
-            ViewMode::PODS => display_list = self.data.pods_list,
-            ViewMode::CONT => display_list = self.data.pods_list, // TODO: Update to CONT
-            ViewMode::LOGS => display_list = self.data.pods_list, // TODO: Update to LOGS
+            ViewMode::PODS => display_list = self.data.pods.names,
+            ViewMode::CONT => display_list = self.data.pods.names, // TODO: Update to CONT
+            ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
         }
 
         let list = List::new(display_list)

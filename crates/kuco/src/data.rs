@@ -42,9 +42,9 @@ pub struct KubeData {
     context: KubeContext,
     pub namespaces: NamespaceData,
     pub current_namespace: Option<String>,
-    pub pods_list: Vec<String>,
     pub pods: PodData,
     pub current_pod: PodInfo,
+    pub current_pod_name: Option<String>,
     pub container: Option<String>,
     pub current_container: Option<String>, // TODO: Create custom types ...
 }
@@ -55,9 +55,9 @@ impl KubeData {
             context: KubeContext::default(),
             namespaces: NamespaceData::new(),
             current_namespace: None,
-            pods_list: Vec::new(),
             pods: PodData::default(),
             current_pod: PodInfo::default(),
+            current_pod_name: None,
             container: None,
             current_container: None,
         }
@@ -87,7 +87,7 @@ impl KubeData {
     pub async fn update_all(&mut self) {
         self.update_context().await;
         self.update_namespaces().await;
-        self.update_pods().await;
+        self.update_pods_names_list().await;
     }
 
     async fn update_context(&mut self) {
@@ -128,7 +128,27 @@ impl KubeData {
             )
             .await;
 
-        self.pods_list = self.get_pods();
+        self.pods.names = self.get_pods();
+    }
+
+    pub async fn update_pods_names_list(&mut self) {
+        let ns: String;
+
+        match &self.current_namespace {
+            Some(s) => ns = s.to_owned(),
+            None => ns = "default".to_owned(),
+        };
+
+        let _ = self
+            .pods
+            .get_names(
+                self.context
+                    .client
+                    .clone() // TODO: check if there is a way to avoid cloning ...
+                    .expect("[ERROR] Client is None."),
+                &ns,
+            )
+            .await;
     }
 }
 

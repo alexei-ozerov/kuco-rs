@@ -52,7 +52,7 @@ impl Kuco {
 
         while self.running {
             // Set Mode-Specific Data
-            let mut mode_state: KubeComponentState;
+            let mode_state: KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
                     if kube_state.namespace_state.list_state.selected() == None {
@@ -216,6 +216,14 @@ impl Kuco {
         self.running = false;
     }
 
+    pub fn refresh_pods_selection(&mut self, component_state: &KubeComponentState, ns: &str) {
+        let po_index = component_state.list_state.selected();
+        let po_list = &self.view.display.as_ref().unwrap();
+        let po = &po_list[po_index.unwrap()];
+
+        self.view.data.current_pod_name = Some(po.clone());
+    }
+
     pub fn refresh_namespace_selection(&mut self, component_state: &KubeComponentState) {
         let ns_index = component_state.list_state.selected();
         let ns_list = &self.view.display.as_ref().unwrap();
@@ -228,13 +236,19 @@ impl Kuco {
     pub async fn transition_ns_to_pod_view(&mut self, component_state: &KubeComponentState) {
         self.refresh_namespace_selection(component_state); // Update Current Namespace
         self.view.update().await; // Update View
-        self.view.data.pods_list = self.view.data.get_pods(); // Update Pods List
         self.view.view_mode = ViewMode::PODS;
 
         tracing::debug!("--- Refresh Event Start ---");
         tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
-        tracing::debug!("Pods List: {:#?}", self.view.data.pods_list);
+        tracing::debug!("Pods List: {:#?}", self.view.data.pods.names);
         tracing::debug!("Pods Data: {:#?}", self.view.data.pods);
         tracing::debug!("--- Refresh Event End ---");
+    }
+
+    pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
+        let ns = self.view.data.current_namespace.clone();
+        self.refresh_pods_selection(component_state, &ns.unwrap()); // Update Current Namespace
+        self.view.update().await; // Update View
+        self.view.view_mode = ViewMode::CONT;
     }
 }
