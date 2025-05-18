@@ -9,7 +9,7 @@ use ratatui::{
 use crate::{app::*, data::KubeComponentState};
 
 impl Kuco {
-    pub fn draw_view(&mut self, f: &mut Frame<'_>, kube_state: &mut KubeComponentState) {
+    pub fn draw_view(&mut self, f: &mut Frame<'_>, mut mode_state: &mut KubeComponentState) {
         // Setup Screen Layout
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -98,6 +98,16 @@ impl Kuco {
         // Mock Up Inner Results Data Pane
         // let data_block = Block::bordered().border_type(BorderType::Rounded);
         // f.render_widget(data_block, results_inner_data);
+        let data_view_content = format!(
+            "{} [ NAMESPACE ]\n{} [ POD ]",
+            self.view.data.current_namespace.clone().unwrap(),
+            self.view.data.current_pod_name.clone().unwrap_or("None".to_string()),
+        );
+        let data_view = Paragraph::new(data_view_content)
+            .style(Style::default())
+            .alignment(Alignment::Right);
+        let data_view_block = data_view.block(Block::default());
+        f.render_widget(data_view_block, mid_inner_data);
 
         // Define Header / Title
         let heading_style = Style::new()
@@ -122,7 +132,7 @@ impl Kuco {
         }
 
         // Input Display Configuration
-        let search_input_string = kube_state.search.input.as_str();
+        let search_input_string = mode_state.search.input.as_str();
 
         let input = format!("[ {} ] {}", mode, search_input_string,);
         let input = Paragraph::new(input).style(Style::default());
@@ -136,7 +146,7 @@ impl Kuco {
         f.render_stateful_widget(
             self.view.clone(), // TODO: ugh, get rid of this clone later
             mid_inner_list,
-            &mut kube_state.clone(),
+            &mut mode_state,
         );
 
         // Render Input Block

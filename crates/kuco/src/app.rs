@@ -52,43 +52,45 @@ impl Kuco {
 
         while self.running {
             // Set Mode-Specific Data
-            let mode_state: KubeComponentState;
+            let mut mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
                     if kube_state.namespace_state.list_state.selected() == None {
                         kube_state.namespace_state.list_state.select_first();
                     }
-                    mode_state = kube_state.namespace_state.clone();
+                    mode_state = &mut kube_state.namespace_state;
+                    self.refresh_namespace_selection(&mode_state);
                 }
                 ViewMode::PODS => {
                     if kube_state.pods_state.list_state.selected() == None {
                         kube_state.pods_state.list_state.select_first();
                     }
-                    mode_state = kube_state.pods_state.clone();
+                    mode_state = &mut kube_state.pods_state;
+                    self.refresh_pods_selection(&mode_state);
                 }
                 ViewMode::CONT => {
                     if kube_state.containers_state.list_state.selected() == None {
                         kube_state.containers_state.list_state.select_first();
                     }
-                    mode_state = kube_state.containers_state.clone();
+                    mode_state = &mut kube_state.containers_state;
                 }
                 ViewMode::LOGS => {
                     if kube_state.logs_state.list_state.selected() == None {
                         kube_state.logs_state.list_state.select_first();
                     }
-                    mode_state = kube_state.logs_state.clone();
+                    mode_state = &mut kube_state.logs_state;
                 }
             }
 
             terminal.draw(|frame| {
-                self.draw_view(frame, &mut mode_state.clone());
+                self.draw_view(frame, &mut mode_state);
             })?;
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
                 Event::Crossterm(event) => match event {
                     crossterm::event::Event::Key(key_event) => {
-                        self.handle_key_events(key_event, &mut kube_state)?
+                        self.handle_key_events(key_event, &mut mode_state)?
                     }
                     _ => {}
                 },
@@ -97,8 +99,8 @@ impl Kuco {
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
-                            self.transition_ns_to_pod_view(&mut kube_state.namespace_state)
-                                .await;
+                            self.view.update().await;
+                            self.transition_ns_to_pod_view(&mut mode_state).await;
                         }
                         ViewMode::PODS => self.view.view_mode = ViewMode::CONT,
                         ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
@@ -106,7 +108,12 @@ impl Kuco {
                     },
                     AppEvent::NavLeft => match self.view.view_mode {
                         ViewMode::NS => {}
-                        ViewMode::PODS => self.view.view_mode = ViewMode::NS,
+                        ViewMode::PODS => {
+                            self.view.view_mode = ViewMode::NS;
+                            self.view.update().await;
+                            mode_state.list_state.select(Some(0)); // TODO: look at how this can be
+                                                                   // done better .................
+                        },
                         ViewMode::CONT => self.view.view_mode = ViewMode::PODS,
                         ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
                     },
@@ -121,15 +128,8 @@ impl Kuco {
     pub fn handle_key_events(
         &mut self,
         key_event: KeyEvent,
-        state: &mut KubeWidgetState,
+        mode_state: &mut KubeComponentState,
     ) -> color_eyre::Result<()> {
-        let mode_state: &mut KubeComponentState;
-        match self.view.view_mode {
-            ViewMode::NS => mode_state = &mut state.namespace_state,
-            ViewMode::PODS => mode_state = &mut state.pods_state,
-            ViewMode::CONT => mode_state = &mut state.containers_state,
-            ViewMode::LOGS => mode_state = &mut state.logs_state,
-        }
         match self.view.interact_mode {
             InteractionMode::NORMAL => {
                 match key_event.code {
@@ -147,7 +147,18 @@ impl Kuco {
                     // Navigation
                     KeyCode::Right | KeyCode::Char('l') => self.events.send(AppEvent::NavRight),
                     KeyCode::Left | KeyCode::Char('h') => self.events.send(AppEvent::NavLeft),
-                    KeyCode::Up | KeyCode::Char('k') => mode_state.list_state.select_next(),
+                    KeyCode::Up | KeyCode::Char('k') => {
+                        // Check for list length (since display and list_state.selected are set on
+                        // initialization, I'm using unwrap() for now ... TODO: replace late with
+                        // something less sketchy.)
+                        if self.view.display.clone().unwrap().len() > 0 {
+                            if mode_state.list_state.selected().unwrap()
+                                <= self.view.display.clone().unwrap().len() - 2 as usize
+                            {
+                                mode_state.list_state.select_next()
+                            }
+                        }
+                    }
                     KeyCode::Down | KeyCode::Char('j') => mode_state.list_state.select_previous(),
 
                     _ => {}
@@ -164,23 +175,34 @@ impl Kuco {
                     // Navigation
                     KeyCode::Right => self.events.send(AppEvent::NavRight),
                     KeyCode::Left => self.events.send(AppEvent::NavLeft),
-                    KeyCode::Up => state.namespace_state.list_state.select_next(),
-                    KeyCode::Down => state.namespace_state.list_state.select_previous(),
+                    KeyCode::Up => {
+                        // Check for list length (since display and list_state.selected are set on
+                        // initialization, I'm using unwrap() for now ... TODO: replace late with
+                        // something less sketchy.)
+                        if self.view.display.clone().unwrap().len() > 0 {
+                            if mode_state.list_state.selected().unwrap()
+                                <= self.view.display.clone().unwrap().len() - 2 as usize
+                            {
+                                mode_state.list_state.select_next()
+                            }
+                        }
+                    },
+                    KeyCode::Down => mode_state.list_state.select_previous(),
 
                     // Search Entry
                     KeyCode::Char(to_insert) => {
                         // Check if search buffer is clear or not, and swap search state if it is.
-                        if state.namespace_state.search.input.len() > 0 {
+                        if mode_state.search.input.len() > 0 {
                             // self.searching = true;
                         }
 
-                        state.namespace_state.search.input += &to_insert.to_string();
+                        mode_state.search.input += &to_insert.to_string();
                     }
                     KeyCode::Backspace => {
-                        let s = &mut state.namespace_state.search.input;
+                        let s = &mut mode_state.search.input;
                         if s.len() > 0 {
                             s.truncate(s.len() - 1);
-                            state.namespace_state.search.input = s.to_string();
+                            mode_state.search.input = s.to_string();
                         }
                     }
                     _ => {}
@@ -216,10 +238,14 @@ impl Kuco {
         self.running = false;
     }
 
-    pub fn refresh_pods_selection(&mut self, component_state: &KubeComponentState, ns: &str) {
+    pub fn refresh_pods_selection(&mut self, component_state: &KubeComponentState) {
         let po_index = component_state.list_state.selected();
         let po_list = &self.view.display.as_ref().unwrap();
-        let po = &po_list[po_index.unwrap()];
+
+        let mut po: &String = &"None".to_string();
+        if po_list.len() > 0 as usize {
+            po = &po_list[po_index.unwrap()];
+        }
 
         self.view.data.current_pod_name = Some(po.clone());
     }
@@ -227,7 +253,11 @@ impl Kuco {
     pub fn refresh_namespace_selection(&mut self, component_state: &KubeComponentState) {
         let ns_index = component_state.list_state.selected();
         let ns_list = &self.view.display.as_ref().unwrap();
-        let ns = &ns_list[ns_index.unwrap()];
+
+        let mut ns: &String = &"default".to_string();
+        if ns_list.len() > 0 {
+            ns = &ns_list[ns_index.unwrap()];
+        }
 
         // Select Namespace
         self.view.data.current_namespace = Some(ns.clone());
@@ -237,6 +267,7 @@ impl Kuco {
         self.refresh_namespace_selection(component_state); // Update Current Namespace
         self.view.update().await; // Update View
         self.view.view_mode = ViewMode::PODS;
+        self.view.update().await; // Update View
 
         tracing::debug!("--- Refresh Event Start ---");
         tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
@@ -246,9 +277,8 @@ impl Kuco {
     }
 
     pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
-        let ns = self.view.data.current_namespace.clone();
-        self.refresh_pods_selection(component_state, &ns.unwrap()); // Update Current Namespace
-        self.view.update().await; // Update View
+        self.refresh_pods_selection(component_state); // Update Current Namespace
         self.view.view_mode = ViewMode::CONT;
+        self.view.update().await; // Update View
     }
 }
