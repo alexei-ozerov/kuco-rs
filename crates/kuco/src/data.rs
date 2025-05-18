@@ -74,12 +74,13 @@ impl KubeData {
     }
 
     pub fn get_pods(&mut self) -> Vec<String> {
-        let ref_pods_vec = self
-            .pods
-            .list
-            .iter()
-            .map(|po| po.name.to_string())
-            .collect();
+        let ref_pods_vec = self.pods.names.clone();
+        // let ref_pods_vec = self
+        //     .pods
+        //     .list
+        //     .iter()
+        //     .map(|po| po.name.to_string())
+        //     .collect();
 
         ref_pods_vec
     }
