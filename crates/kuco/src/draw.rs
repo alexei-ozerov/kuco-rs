@@ -99,9 +99,12 @@ impl Kuco {
         // let data_block = Block::bordered().border_type(BorderType::Rounded);
         // f.render_widget(data_block, results_inner_data);
         let data_view_content = format!(
-            "{} [ NAMESPACE ]\n{} [ POD ]",
+            "{} [ NAMESPACE ]
+             {} [ POD ]      
+             {} [ CONTAINER ]",
             self.view.data.current_namespace.clone().unwrap(),
-            self.view.data.current_pod_name.clone().unwrap_or("None".to_string()),
+            self.view.data.current_pod_name.clone().unwrap_or("none".to_string()),
+            self.view.data.current_container.clone().unwrap_or("none".to_string()),
         );
         let data_view = Paragraph::new(data_view_content)
             .style(Style::default())
