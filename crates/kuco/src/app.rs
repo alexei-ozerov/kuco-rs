@@ -111,8 +111,11 @@ impl Kuco {
                         ViewMode::PODS => {
                             self.view.view_mode = ViewMode::NS;
                             self.view.update().await;
-                            mode_state.list_state.select(Some(0)); // TODO: look at how this can be
-                                                                   // done better .................
+
+                            // Reset pod list selection & current pod name
+                            // TODO: Find a cleaner way to do this
+                            self.view.data.current_pod_name = None;
+                            mode_state.list_state.select(Some(0));
                         },
                         ViewMode::CONT => self.view.view_mode = ViewMode::PODS,
                         ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
@@ -242,7 +245,7 @@ impl Kuco {
         let po_index = component_state.list_state.selected();
         let po_list = &self.view.display.as_ref().unwrap();
 
-        let mut po: &String = &"None".to_string();
+        let mut po: &String = &"none".to_string();
         if po_list.len() > 0 as usize {
             po = &po_list[po_index.unwrap()];
         }
