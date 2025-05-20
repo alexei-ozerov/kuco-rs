@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, Paragraph},
+    widgets::{Block, BorderType, Borders, Paragraph},
 };
 
 use crate::{app::*, data::KubeComponentState};
@@ -17,7 +17,8 @@ impl Kuco {
             .horizontal_margin(1)
             .constraints::<&[Constraint]>(
                 [
-                    Constraint::Length(1), // header
+                    Constraint::Length(2), // header
+                    Constraint::Length(5), // navigation
                     Constraint::Min(1),    // results list
                     Constraint::Length(3), // input
                 ]
@@ -25,33 +26,24 @@ impl Kuco {
             )
             .split(f.area());
 
-        let top_chunk = chunks[0];
+        let top_chunk = chunks[1];
+        let top_inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(92), Constraint::Percentage(8)])
+            .split(top_chunk);
+        let top_inner_title = top_inner_chunks[0];
+        let top_inner_nav = top_inner_chunks[1];
 
         // Results (Middle) Layout
-        let mid_chunk = chunks[1];
+        let mid_chunk = chunks[2];
         let results_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Percentage(35),
-                Constraint::Percentage(10),
-                Constraint::Percentage(55),
-            ])
+            .constraints(vec![Constraint::Percentage(100)])
             .split(mid_chunk);
         let mid_inner_list = results_inner_chunks[0];
-        let mid_inner_data = results_inner_chunks[2];
 
         // Input (Bottom) Layout
-        let bot_chunk = chunks[2];
-        let input_inner_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![
-                Constraint::Percentage(35),
-                Constraint::Percentage(10),
-                Constraint::Percentage(50),
-                Constraint::Percentage(5),
-            ])
-            .split(bot_chunk);
-        let input_inner_navigation = input_inner_chunks[2];
+        let bot_chunk = chunks[3];
 
         // Navigation
         let _nav_row_1 = vec![" ", "S", "A", " "];
@@ -92,25 +84,43 @@ impl Kuco {
         let top_nav_line = Line::from(Span::from("  S A  "));
         let bot_nav_line = Line::from(Span::from("  D D  "));
         let nav_text: Vec<Line<'_>> = vec![top_nav_line.into(), nav_line, bot_nav_line.into()];
-        let nav = Paragraph::new(nav_text).alignment(Alignment::Right);
-        f.render_widget(nav, input_inner_navigation);
+        let nav = Paragraph::new(nav_text).alignment(Alignment::Right).block(
+            Block::new()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(Style::default().fg(Color::Magenta)),
+        );
+        f.render_widget(nav, top_inner_nav);
 
         // Mock Up Inner Results Data Pane
         // let data_block = Block::bordered().border_type(BorderType::Rounded);
         // f.render_widget(data_block, results_inner_data);
         let data_view_content = format!(
-            "{} [ NAMESPACE ]
-             {} [ POD ]      
-             {} [ CONTAINER ]",
+            "[ NAMESPACE ] {}
+[ POD ]       {}
+[ CONTAINER ] {}",
             self.view.data.current_namespace.clone().unwrap(),
-            self.view.data.current_pod_name.clone().unwrap_or("none".to_string()),
-            self.view.data.current_container.clone().unwrap_or("none".to_string()),
+            self.view
+                .data
+                .current_pod_name
+                .clone()
+                .unwrap_or("-".to_string()),
+            self.view
+                .data
+                .current_container
+                .clone()
+                .unwrap_or("-".to_string()),
         );
         let data_view = Paragraph::new(data_view_content)
             .style(Style::default())
-            .alignment(Alignment::Right);
-        let data_view_block = data_view.block(Block::default());
-        f.render_widget(data_view_block, mid_inner_data);
+            .alignment(Alignment::Left);
+        let data_view_block = data_view.block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_type(BorderType::Rounded)
+                .style(Style::default().fg(Color::Magenta)),
+        );
+        f.render_widget(data_view_block, top_inner_title);
 
         // Define Header / Title
         let heading_style = Style::new()
@@ -143,7 +153,7 @@ impl Kuco {
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
         // Render Title
-        f.render_widget(&title, top_chunk);
+        f.render_widget(&title, chunks[0]);
 
         // Render List
         f.render_stateful_widget(

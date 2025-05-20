@@ -40,15 +40,20 @@ impl KubeComponentState {
 #[derive(Clone)]
 pub struct KubeData {
     context: KubeContext,
-    pub namespaces: NamespaceData,
     pub current_namespace: Option<String>,
-    pub pods: PodData,
-    pub current_pod: PodInfo,
     pub current_pod_name: Option<String>,
-    pub container: Option<String>,
+    pub current_pod_info: PodInfo,
     pub current_container: Option<String>, // TODO: Create custom types ...
+                                           //
+    pub namespaces: NamespaceData,
+    pub pods: PodData,
+    pub container: Option<String>,
+    pub logs: Option<String>,
 }
 
+// TODO: Replace calls to the kubeapi here with calls to the database.
+//       The calls to K8s should happen continually on another thread
+//       and write to the sqlite database.
 impl KubeData {
     pub async fn new() -> Self {
         KubeData {
@@ -56,10 +61,11 @@ impl KubeData {
             namespaces: NamespaceData::new(),
             current_namespace: None,
             pods: PodData::default(),
-            current_pod: PodInfo::default(),
+            current_pod_info: PodInfo::default(),
             current_pod_name: None,
             container: None,
             current_container: None,
+            logs: None,
         }
     }
 
@@ -91,7 +97,7 @@ impl KubeData {
         self.update_pods_names_list().await;
     }
 
-    async fn update_context(&mut self) {
+    pub async fn update_context(&mut self) {
         // TODO: Implement custom error types for tui to replace unwrap().
         if self.context.client.is_none() {
             self.context.init_context().await.unwrap();

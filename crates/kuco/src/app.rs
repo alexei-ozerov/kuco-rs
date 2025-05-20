@@ -13,14 +13,15 @@ use crate::view::KubeWidget;
 
 /// Application.
 pub struct Kuco {
-    /// Is the application running?
     pub running: bool,
-    /// Counter.
-    pub counter: u8,
-    /// Event handler.
     pub events: EventHandler,
-    /// Kube Widget Data
     pub view: KubeWidget,
+    pub cache: Option<Cache>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Cache {
+    pub display: Vec<String>,
 }
 
 // TODO: Find a better place for this.
@@ -42,9 +43,9 @@ impl Kuco {
     pub async fn new() -> Self {
         Self {
             running: true,
-            counter: 0,
             events: EventHandler::new(),
             view: KubeWidget::new().await,
+            cache: None,
         }
     }
 
@@ -52,10 +53,11 @@ impl Kuco {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
 
-        self.view.update().await;
+        self.view.update_widget_kube_data().await;
 
         while self.running {
             // Set Mode-Specific Data
+            // Using a reference here so that I don't need to copy state over and over ...
             let mut mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
@@ -99,7 +101,10 @@ impl Kuco {
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
-                    AppEvent::Refresh => self.view.update().await,
+                    // TODO: Implement a process that runs on another thread in a non-blocking
+                    // fashion and continually updates the sqlite database with cluster
+                    // information, and retool this event to pull data from the database ...
+                    AppEvent::Refresh => self.view.update_widget_kube_data().await,
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
@@ -114,7 +119,7 @@ impl Kuco {
                         ViewMode::NS => {}
                         ViewMode::PODS => {
                             self.view.view_mode = ViewMode::NS;
-                            self.view.update().await;
+                            self.view.update_widget_kube_data().await;
 
                             // Reset pod list selection & current pod name
                             // TODO: Find a cleaner way to do this
@@ -269,7 +274,7 @@ impl Kuco {
         let po_index = component_state.list_state.selected();
         let po_list = &self.view.display.as_ref().unwrap();
 
-        let mut po: &String = &"none".to_string();
+        let mut po: &String = &"-".to_string();
         if po_list.len() > 0 as usize {
             po = &po_list[po_index.unwrap()];
         }
@@ -294,9 +299,9 @@ impl Kuco {
         tracing::debug!("VIEW: {:?}", self.view.display.clone());
         tracing::debug!("STATE: {:?}", component_state.list_state);
         self.refresh_namespace_selection(component_state); // Update Current Namespace
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
         self.view.view_mode = ViewMode::PODS;
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
 
         tracing::debug!("--- Refresh Event Start ---");
         tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
@@ -308,6 +313,6 @@ impl Kuco {
     pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
         self.refresh_pods_selection(component_state); // Update Current Namespace
         self.view.view_mode = ViewMode::CONT;
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
     }
 }
