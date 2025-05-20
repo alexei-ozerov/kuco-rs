@@ -52,12 +52,16 @@ impl StatefulWidget for KubeWidget {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::default().title_alignment(Alignment::Left);
 
-        let display_list: Vec<String>;
-        match self.view_mode {
-            ViewMode::NS => display_list = self.data.namespaces.names,
-            ViewMode::PODS => display_list = self.data.pods.names,
-            ViewMode::CONT => display_list = self.data.pods.names, // TODO: Update to CONT
-            ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
+        let display_list;
+        if self.display.clone().unwrap().len() == 0 as usize {
+            match self.view_mode {
+                ViewMode::NS => display_list = self.data.namespaces.names,
+                ViewMode::PODS => display_list = self.data.pods.names,
+                ViewMode::CONT => display_list = self.data.pods.names, // TODO: Update to CONT
+                ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
+            }
+        } else {
+            display_list = self.display.clone().unwrap();
         }
 
         let list = List::new(display_list)
