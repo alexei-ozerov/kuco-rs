@@ -1,3 +1,7 @@
+use nucleo_matcher::{
+    Config, Matcher,
+    pattern::{CaseMatching, Normalization, Pattern},
+};
 use ratatui::{
     DefaultTerminal,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
@@ -9,14 +13,15 @@ use crate::view::KubeWidget;
 
 /// Application.
 pub struct Kuco {
-    /// Is the application running?
     pub running: bool,
-    /// Counter.
-    pub counter: u8,
-    /// Event handler.
     pub events: EventHandler,
-    /// Kube Widget Data
     pub view: KubeWidget,
+    pub cache: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Cache {
+    pub display: Vec<String>,
 }
 
 // TODO: Find a better place for this.
@@ -38,9 +43,9 @@ impl Kuco {
     pub async fn new() -> Self {
         Self {
             running: true,
-            counter: 0,
             events: EventHandler::new(),
             view: KubeWidget::new().await,
+            cache: None,
         }
     }
 
@@ -48,10 +53,11 @@ impl Kuco {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
 
-        self.view.update().await;
+        self.view.update_widget_kube_data().await;
 
         while self.running {
             // Set Mode-Specific Data
+            // Using a reference here so that I don't need to copy state over and over ...
             let mut mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
@@ -82,6 +88,14 @@ impl Kuco {
                 }
             }
 
+            // Reset search buffer
+            match self.view.interact_mode  {
+                InteractionMode::NORMAL => {
+                    mode_state.search.input = "".to_owned();
+                },
+                InteractionMode::SEARCH => {},
+            }
+
             terminal.draw(|frame| {
                 self.draw_view(frame, &mut mode_state);
             })?;
@@ -95,11 +109,14 @@ impl Kuco {
                     _ => {}
                 },
                 Event::App(app_event) => match app_event {
-                    AppEvent::Refresh => self.view.update().await,
+                    // TODO: Implement a process that runs on another thread in a non-blocking
+                    // fashion and continually updates the sqlite database with cluster
+                    // information, and retool this event to pull data from the database ...
+                    AppEvent::Refresh => self.view.update_widget_kube_data().await,
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
-                            self.view.update().await;
+                            // self.view.update().await; // TODO: Check why this was written
                             self.transition_ns_to_pod_view(&mut mode_state).await;
                         }
                         ViewMode::PODS => self.view.view_mode = ViewMode::CONT,
@@ -110,13 +127,13 @@ impl Kuco {
                         ViewMode::NS => {}
                         ViewMode::PODS => {
                             self.view.view_mode = ViewMode::NS;
-                            self.view.update().await;
+                            self.view.update_widget_kube_data().await;
 
                             // Reset pod list selection & current pod name
                             // TODO: Find a cleaner way to do this
                             self.view.data.current_pod_name = None;
                             mode_state.list_state.select(Some(0));
-                        },
+                        }
                         ViewMode::CONT => self.view.view_mode = ViewMode::PODS,
                         ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
                     },
@@ -135,6 +152,7 @@ impl Kuco {
     ) -> color_eyre::Result<()> {
         match self.view.interact_mode {
             InteractionMode::NORMAL => {
+                // Handle key events
                 match key_event.code {
                     KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
                     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
@@ -168,15 +186,32 @@ impl Kuco {
                 }
             }
             InteractionMode::SEARCH => {
+                let matcher = Matcher::new(Config::DEFAULT.match_paths());
+
+                // Init cache when search mode is turned on
+                match self.cache {
+                    Some(_) => {}
+                    None => {
+                        self.cache = self.view.display.clone();
+                    }
+                }
+
                 match key_event.code {
-                    KeyCode::Esc => self.view.interact_mode = InteractionMode::NORMAL,
+                    KeyCode::Esc => {
+                        self.view.interact_mode = InteractionMode::NORMAL;
+                        self.cache = None; // Delete cached display list
+                        self.events.send(AppEvent::Refresh);
+                    }
 
                     KeyCode::Char('c' | 'C') if key_event.modifiers == KeyModifiers::CONTROL => {
                         self.events.send(AppEvent::Quit)
                     }
 
                     // Navigation
-                    KeyCode::Right => self.events.send(AppEvent::NavRight),
+                    KeyCode::Right | KeyCode::Enter => {
+                        self.events.send(AppEvent::NavRight);
+                        self.view.interact_mode = InteractionMode::NORMAL;
+                    }
                     KeyCode::Left => self.events.send(AppEvent::NavLeft),
                     KeyCode::Up => {
                         // Check for list length (since display and list_state.selected are set on
@@ -189,14 +224,14 @@ impl Kuco {
                                 mode_state.list_state.select_next()
                             }
                         }
-                    },
+                    }
                     KeyCode::Down => mode_state.list_state.select_previous(),
 
                     // Search Entry
                     KeyCode::Char(to_insert) => {
                         // Check if search buffer is clear or not, and swap search state if it is.
                         if mode_state.search.input.len() > 0 {
-                            // self.searching = true;
+                            self.search(mode_state, matcher, self.view.display.clone());
                         }
 
                         mode_state.search.input += &to_insert.to_string();
@@ -207,6 +242,7 @@ impl Kuco {
                             s.truncate(s.len() - 1);
                             mode_state.search.input = s.to_string();
                         }
+                        self.search(mode_state, matcher, self.cache.clone());
                     }
                     _ => {}
                 }
@@ -216,18 +252,28 @@ impl Kuco {
     }
 
     // TODO: build a better implementation of this ...
-    fn _search(&mut self, _state: &mut KubeWidgetState) {
-        // let ns_ref: &mut Vec<String> = &mut self.kube_widget.data.namespaces.names;
-        // let ns_new_arc_ref = Arc::new(Mutex::new(Vec::<String>::new()));
-        //
-        // ns_ref.par_iter_mut().for_each(|ns| {
-        //     if ns.contains(&state.namespace_state.search.input) {
-        //         ns_new_arc_ref.lock().expect("[ERROR] Some multithreading stuff crashed.").push(ns.to_string());
-        //     }
-        // });
-        //
-        // let inner: Vec<_> = Arc::try_unwrap(ns_new_arc_ref).unwrap().into_inner().unwrap();
-        // self.kube_data.namespaces.names = inner;
+    fn search(
+        &mut self,
+        state: &mut KubeComponentState,
+        mut matcher: Matcher,
+        current_list: Option<Vec<String>>,
+    ) {
+        let pattern = &state.search.input;
+        match current_list {
+            Some(display) => {
+                let matches = Pattern::parse(pattern, CaseMatching::Ignore, Normalization::Smart)
+                    .match_list(display, &mut matcher);
+
+                state.list_state.select(Some(0));
+                self.view.display = Some(
+                    matches
+                        .iter()
+                        .map(|matched_item| matched_item.0.to_owned())
+                        .collect(),
+                );
+            }
+            None => {}
+        }
     }
 
     /// Handles the tick event of the terminal.
@@ -245,7 +291,7 @@ impl Kuco {
         let po_index = component_state.list_state.selected();
         let po_list = &self.view.display.as_ref().unwrap();
 
-        let mut po: &String = &"none".to_string();
+        let mut po: &String = &"-".to_string();
         if po_list.len() > 0 as usize {
             po = &po_list[po_index.unwrap()];
         }
@@ -267,10 +313,12 @@ impl Kuco {
     }
 
     pub async fn transition_ns_to_pod_view(&mut self, component_state: &KubeComponentState) {
+        tracing::debug!("VIEW: {:?}", self.view.display.clone());
+        tracing::debug!("STATE: {:?}", component_state.list_state);
         self.refresh_namespace_selection(component_state); // Update Current Namespace
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
         self.view.view_mode = ViewMode::PODS;
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
 
         tracing::debug!("--- Refresh Event Start ---");
         tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
@@ -282,6 +330,6 @@ impl Kuco {
     pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
         self.refresh_pods_selection(component_state); // Update Current Namespace
         self.view.view_mode = ViewMode::CONT;
-        self.view.update().await; // Update View
+        self.view.update_widget_kube_data().await; // Update View
     }
 }

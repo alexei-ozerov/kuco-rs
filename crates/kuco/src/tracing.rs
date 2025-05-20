@@ -13,7 +13,7 @@ use tracing_subscriber::EnvFilter;
 /// duration of the program to ensure that logs are flushed to the file on shutdown. The logs are
 /// written in a non-blocking fashion to ensure that the logs do not block the main thread.
 pub fn init_tracing() -> Result<WorkerGuard> {
-    let file = File::create("tracing.log").wrap_err("failed to create tracing.log")?;
+    let file = File::create("logs/tracing.log").wrap_err("failed to create tracing.log")?;
     let (non_blocking, guard) = non_blocking(file);
 
     // By default, the subscriber is configured to log all events with a level of `DEBUG` or higher,
