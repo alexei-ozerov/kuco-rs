@@ -40,8 +40,11 @@ impl KubeWidget {
             ViewMode::CONT => {
                 self.data.update_containers_names_list().await;
                 self.display = Some(self.data.get_containers());
-            },
-            ViewMode::LOGS => self.display = Some(self.data.get_pods()),
+            }
+            ViewMode::LOGS => {
+                self.data.update_logs_lines_list().await;
+                self.display = Some(self.data.get_logs());
+            }
         }
     }
 }
@@ -52,30 +55,58 @@ impl StatefulWidget for KubeWidget {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::default().title_alignment(Alignment::Left);
 
-        let display_list;
+        let mut display_list;
         if self.display.clone().unwrap().len() == 0 as usize {
             match self.view_mode {
                 ViewMode::NS => display_list = self.data.namespaces.names,
                 ViewMode::PODS => display_list = self.data.pods.names,
-                ViewMode::CONT => display_list = self.data.container.names,
-                ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
+                ViewMode::CONT => display_list = self.data.containers.names,
+                ViewMode::LOGS => display_list = self.data.logs.lines,
             }
         } else {
             display_list = self.display.clone().unwrap();
         }
 
-        let list = List::new(display_list)
-            .block(block)
-            .style(Style::new().fg(Color::Magenta))
-            .highlight_style(Style::default().bold().white().on_black())
-            .highlight_spacing(HighlightSpacing::Always)
-            .repeat_highlight_symbol(true)
-            .direction(ListDirection::BottomToTop);
+        // TODO: Implement eq or whatever so this can be an easy if
+        //       or just restructure the match to save space
+        let mut reverse_list_flag = true;
+        match self.view_mode {
+            ViewMode::NS => {}
+            ViewMode::PODS => {}
+            ViewMode::CONT => {}
+            ViewMode::LOGS => {
+                reverse_list_flag = false;
+            }
+        }
 
-        // Select first item in index automatically
-        // TODO: Make this select the most used namespace
-        if state.list_state.selected() == None {
-            state.list_state.select(Some(0));
+        let list;
+        if reverse_list_flag {
+            list = List::new(display_list)
+                .block(block)
+                .style(Style::new().fg(Color::Magenta))
+                .highlight_style(Style::default().bold().white().on_black())
+                .highlight_spacing(HighlightSpacing::Always)
+                .repeat_highlight_symbol(true)
+                .direction(ListDirection::BottomToTop);
+
+            // Select first item in index automatically
+            // TODO: Make this select the most used namespace
+            if state.list_state.selected() == None {
+                state.list_state.select_first();
+            }
+        } else {
+            display_list.reverse();
+            list = List::new(display_list.clone())
+                .block(block)
+                .style(Style::new().fg(Color::Magenta))
+                .highlight_style(Style::default().bold().white().on_black())
+                .highlight_spacing(HighlightSpacing::Always)
+                .repeat_highlight_symbol(true)
+                .direction(ListDirection::BottomToTop);
+
+            if state.list_state.selected() == None {
+                state.list_state.select_first();
+            }
         }
 
         list.render(area, buf, &mut state.list_state);

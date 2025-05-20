@@ -4,7 +4,7 @@
 
 use ratatui::widgets::ListState;
 
-use kuco_k8s_backend::{ContainerData, KubeContext, NamespaceData, PodData, PodInfo};
+use kuco_k8s_backend::{ContainerData, KubeContext, LogData, NamespaceData, PodData, PodInfo};
 
 /*
  * Create a generic Kube Component State Structure.
@@ -42,14 +42,15 @@ pub struct KubeData {
     context: KubeContext,
     pub current_namespace: Option<String>,
     pub current_pod_name: Option<String>,
+    pub current_log_line: Option<String>,
 
     pub current_pod_info: PodInfo,
     pub current_container: Option<String>, // TODO: Create custom types ...
-                                           //
+    //
     pub namespaces: NamespaceData,
     pub pods: PodData,
-    pub container: ContainerData,
-    pub logs: Option<String>,
+    pub containers: ContainerData,
+    pub logs: LogData,
 }
 
 // TODO: Why do you use default() sometimes and new() other times ... standarize please
@@ -62,12 +63,13 @@ impl KubeData {
             context: KubeContext::default(),
             namespaces: NamespaceData::new(),
             current_namespace: None,
+            current_log_line: None,
             pods: PodData::default(),
             current_pod_info: PodInfo::default(),
             current_pod_name: None,
-            container: ContainerData::new(),
+            containers: ContainerData::new(),
             current_container: None,
-            logs: None,
+            logs: LogData::new(),
         }
     }
 
@@ -83,18 +85,18 @@ impl KubeData {
 
     pub fn get_pods(&mut self) -> Vec<String> {
         let ref_pods_vec = self.pods.names.clone();
-        // let ref_pods_vec = self
-        //     .pods
-        //     .list
-        //     .iter()
-        //     .map(|po| po.name.to_string())
-        //     .collect();
 
         ref_pods_vec
     }
 
+    pub fn get_logs(&mut self) -> Vec<String> {
+        let ref_logs_vec = self.logs.lines.clone();
+
+        ref_logs_vec
+    }
+
     pub fn get_containers(&mut self) -> Vec<String> {
-        let ref_cont_vec = self.container.names.clone();
+        let ref_cont_vec = self.containers.names.clone();
 
         ref_cont_vec
     }
@@ -146,6 +148,47 @@ impl KubeData {
         self.pods.names = self.get_pods();
     }
 
+    pub async fn update_logs_lines_list(&mut self) {
+        let ns: String;
+        match &self.current_namespace {
+            Some(s) => ns = s.to_owned(),
+            None => ns = "default".to_owned(),
+        };
+
+        match &self.current_pod_name {
+            Some(po) => {
+                match &self.current_container {
+                    Some(co) => {
+                        let _ = self
+                            .logs
+                            .update(
+                                self.context
+                                    .client
+                                    .clone() // TODO: check if there is a way to avoid cloning ...
+                                    .expect("[ERROR] Client is None."),
+                                &ns,
+                                &po,
+                                &co,
+                            )
+                            .await;
+
+                        self.containers.names = self.get_logs();
+                    }
+                    None => {
+                        tracing::warn!(
+                            "No current container selected. Nothing to do. Could be a potential bug. ;)"
+                        );
+                    }
+                }
+            }
+            None => {
+                tracing::warn!(
+                    "No current pod selected. Nothing to do. Could be a potential bug. ;)"
+                );
+            }
+        };
+    }
+
     pub async fn update_containers_names_list(&mut self) {
         let ns: String;
         match &self.current_namespace {
@@ -156,7 +199,7 @@ impl KubeData {
         match &self.current_pod_name {
             Some(po) => {
                 let _ = self
-                    .container
+                    .containers
                     .update(
                         self.context
                             .client
@@ -167,10 +210,12 @@ impl KubeData {
                     )
                     .await;
 
-                self.container.names = self.get_containers();
+                self.containers.names = self.get_containers();
             }
             None => {
-                tracing::warn!("No current pod selected. Nothing to do. Could be a potential bug. ;)");
+                tracing::warn!(
+                    "No current pod selected. Nothing to do. Could be a potential bug. ;)"
+                );
             }
         };
     }

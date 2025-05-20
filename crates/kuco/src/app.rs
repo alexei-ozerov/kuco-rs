@@ -82,19 +82,19 @@ impl Kuco {
                     self.refresh_containers_selection(&mode_state);
                 }
                 ViewMode::LOGS => {
-                    if kube_state.logs_state.list_state.selected() == None {
-                        kube_state.logs_state.list_state.select_first();
+                    if kube_state.containers_state.list_state.selected() == None {
+                        kube_state.containers_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.logs_state;
                 }
             }
 
             // Reset search buffer
-            match self.view.interact_mode  {
+            match self.view.interact_mode {
                 InteractionMode::NORMAL => {
                     mode_state.search.input = "".to_owned();
-                },
-                InteractionMode::SEARCH => {},
+                }
+                InteractionMode::SEARCH => {}
             }
 
             terminal.draw(|frame| {
@@ -117,13 +117,14 @@ impl Kuco {
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
-                            // self.view.update().await; // TODO: Check why this was written
                             self.transition_ns_to_pod_view(&mut mode_state).await;
                         }
                         ViewMode::PODS => {
                             self.transition_pod_to_cont_view(&mut mode_state).await;
-                        },
-                        ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
+                        }
+                        ViewMode::CONT => {
+                            self.transition_cont_to_log_view(&mut mode_state).await;
+                        }
                         ViewMode::LOGS => {}
                     },
                     AppEvent::NavLeft => match self.view.view_mode {
@@ -136,15 +137,22 @@ impl Kuco {
                             // TODO: Find a cleaner way to do this
                             self.view.data.current_pod_name = None;
                             mode_state.list_state.select(Some(0));
-                        },
+                        }
                         ViewMode::CONT => {
                             self.view.view_mode = ViewMode::PODS;
                             self.view.update_widget_kube_data().await;
 
                             self.view.data.current_container = None;
                             mode_state.list_state.select(Some(0));
-                        },
-                        ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
+                        }
+                        ViewMode::LOGS => {
+                            self.view.view_mode = ViewMode::CONT;
+
+                            self.view.update_widget_kube_data().await;
+
+                            self.view.data.current_log_line = None;
+                            mode_state.list_state.select(Some(0));
+                        }
                     },
                 },
             }
@@ -296,6 +304,19 @@ impl Kuco {
         self.running = false;
     }
 
+    pub fn refresh_logs_selection(&mut self, component_state: &KubeComponentState) {
+        let lo_index = component_state.list_state.selected();
+        let lo_list = &self.view.display.as_ref().unwrap();
+
+        let mut lo: &String = &"none".to_string();
+        if lo_list.len() > 0 as usize {
+            lo = &lo_list[lo_index.unwrap()];
+        }
+
+        // Select Log Line
+        self.view.data.current_log_line = Some(lo.clone());
+    }
+
     pub fn refresh_containers_selection(&mut self, component_state: &KubeComponentState) {
         let co_index = component_state.list_state.selected();
         let co_list = &self.view.display.as_ref().unwrap();
@@ -351,6 +372,12 @@ impl Kuco {
     pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
         self.refresh_pods_selection(component_state); // Update Current Pod Name
         self.view.view_mode = ViewMode::CONT;
+        self.view.update_widget_kube_data().await; // Update View
+    }
+
+    pub async fn transition_cont_to_log_view(&mut self, component_state: &KubeComponentState) {
+        self.refresh_containers_selection(component_state); // Update Current Container Name
+        self.view.view_mode = ViewMode::LOGS;
         self.view.update_widget_kube_data().await; // Update View
     }
 }
