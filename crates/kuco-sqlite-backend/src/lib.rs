@@ -1,6 +1,9 @@
 use color_eyre::eyre::Result;
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
+
+use std::env;
 use std::fs;
+use std::path::PathBuf;
 use std::{path::Path, str::FromStr, time::Duration};
 
 #[derive(Debug, Clone)]
@@ -9,14 +12,29 @@ pub struct SqliteStore {
 }
 
 impl SqliteStore {
-    pub async fn new(path: impl AsRef<Path>, timeout: f64) -> Result<Self> {
-        let path = path.as_ref();
+    pub async fn new() -> Result<Self> {
+        let home_path;
+
+        // TODO: remove this ... won't work on Windows
+        match env::home_dir() {
+            Some(home) => {
+                home_path = home;
+            }
+            None => {
+                home_path = PathBuf::new();
+            }
+        }
+
+        let sqlite_store_path = format!("{}/.kuco/sqlite", home_path.to_str().unwrap());
+        let path = Path::new(&sqlite_store_path);
 
         if !path.exists() {
             if let Some(dir) = path.parent() {
                 fs::create_dir_all(dir)?;
             }
         }
+
+        let timeout: f64 = 10.0;
 
         let opts = SqliteConnectOptions::from_str(path.as_os_str().to_str().unwrap())?
             .journal_mode(SqliteJournalMode::Wal)

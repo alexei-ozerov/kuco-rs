@@ -9,6 +9,7 @@ license = { workspace = true }
 
 [dependencies]
 kuco-k8s-backend = { path = "../kuco-k8s-backend/" }
+kuco-sqlite-backend = { path = "../kuco-sqlite-backend/" }
 
 crossterm = { workspace = true }
 futures = { workspace = true }

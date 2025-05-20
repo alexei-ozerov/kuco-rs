@@ -10,3 +10,4 @@ edition.workspace = true
 color-eyre = { workspace = true }
 uuid = { workspace = true }
 sqlx = { workspace = true, features = ["sqlite", "regexp"] }
+thiserror = { workspace = true }
