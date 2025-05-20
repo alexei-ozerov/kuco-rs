@@ -135,12 +135,15 @@ impl Kuco {
 
         // Interaction Mode Display
         let mode: &str;
+        let col: Color;
         match self.view.interact_mode {
             InteractionMode::NORMAL => {
                 mode = "NORMAL";
+                col = Color::White;
             }
             InteractionMode::SEARCH => {
                 mode = "SEARCH";
+                col = Color::Cyan;
             }
         }
 
@@ -148,7 +151,7 @@ impl Kuco {
         let search_input_string = mode_state.search.input.as_str();
 
         let input = format!("[ {} ] {}", mode, search_input_string,);
-        let input = Paragraph::new(input).style(Style::default());
+        let input = Paragraph::new(input).style(Style::default().fg(col));
         let input_block =
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
