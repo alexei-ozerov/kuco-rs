@@ -1,7 +1,7 @@
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
-    style::{Style, Stylize},
+    style::{Color, Style, Stylize},
     widgets::{Block, HighlightSpacing, List, ListDirection, StatefulWidget},
 };
 
@@ -14,7 +14,6 @@ pub struct KubeWidget {
     pub view_mode: ViewMode,
     pub interact_mode: InteractionMode,
     pub data: KubeData,
-    pub search_mode: bool,
 }
 
 impl KubeWidget {
@@ -24,13 +23,11 @@ impl KubeWidget {
             view_mode: ViewMode::NS,
             interact_mode: InteractionMode::NORMAL,
             data: KubeData::new().await,
-            search_mode: false,
         }
     }
 
-    pub async fn update(&mut self) {
-        self.data.update_all().await;
-
+    pub async fn update_widget_kube_data(&mut self) {
+        self.data.update_context().await;
         match self.view_mode {
             ViewMode::NS => {
                 self.data.update_namespaces().await;
@@ -55,19 +52,22 @@ impl StatefulWidget for KubeWidget {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = Block::default().title_alignment(Alignment::Left);
 
-        let display_list: Vec<String>;
-        match self.view_mode {
-            ViewMode::NS => display_list = self.data.namespaces.names,
-            ViewMode::PODS => display_list = self.data.pods.names,
-            ViewMode::CONT => display_list = self.data.container.names,
-            ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
+        let display_list;
+        if self.display.clone().unwrap().len() == 0 as usize {
+            match self.view_mode {
+                ViewMode::NS => display_list = self.data.namespaces.names,
+                ViewMode::PODS => display_list = self.data.pods.names,
+                ViewMode::CONT => display_list = self.data.container.names,
+                ViewMode::LOGS => display_list = self.data.pods.names, // TODO: Update to LOGS
+            }
+        } else {
+            display_list = self.display.clone().unwrap();
         }
 
         let list = List::new(display_list)
             .block(block)
-            .style(Style::new().blue())
+            .style(Style::new().fg(Color::Magenta))
             .highlight_style(Style::default().bold().white().on_black())
-            .highlight_symbol(">")
             .highlight_spacing(HighlightSpacing::Always)
             .repeat_highlight_symbol(true)
             .direction(ListDirection::BottomToTop);

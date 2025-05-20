@@ -40,16 +40,22 @@ impl KubeComponentState {
 #[derive(Clone)]
 pub struct KubeData {
     context: KubeContext,
-    pub namespaces: NamespaceData,
     pub current_namespace: Option<String>,
-    pub pods: PodData,
-    pub current_pod: PodInfo,
     pub current_pod_name: Option<String>,
-    pub container: ContainerData,
+
+    pub current_pod_info: PodInfo,
     pub current_container: Option<String>, // TODO: Create custom types ...
+                                           //
+    pub namespaces: NamespaceData,
+    pub pods: PodData,
+    pub container: ContainerData,
+    pub logs: Option<String>,
 }
 
 // TODO: Why do you use default() sometimes and new() other times ... standarize please
+// TODO: Replace calls to the kubeapi here with calls to the database.
+//       The calls to K8s should happen continually on another thread
+//       and write to the sqlite database.
 impl KubeData {
     pub async fn new() -> Self {
         KubeData {
@@ -57,10 +63,11 @@ impl KubeData {
             namespaces: NamespaceData::new(),
             current_namespace: None,
             pods: PodData::default(),
-            current_pod: PodInfo::default(),
+            current_pod_info: PodInfo::default(),
             current_pod_name: None,
             container: ContainerData::new(),
             current_container: None,
+            logs: None,
         }
     }
 
@@ -98,7 +105,7 @@ impl KubeData {
         self.update_pods_names_list().await;
     }
 
-    async fn update_context(&mut self) {
+    pub async fn update_context(&mut self) {
         // TODO: Implement custom error types for tui to replace unwrap().
         if self.context.client.is_none() {
             self.context.init_context().await.unwrap();
