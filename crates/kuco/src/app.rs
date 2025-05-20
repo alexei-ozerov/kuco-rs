@@ -16,7 +16,7 @@ pub struct Kuco {
     pub running: bool,
     pub events: EventHandler,
     pub view: KubeWidget,
-    pub cache: Option<Cache>,
+    pub cache: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone)]
@@ -88,6 +88,14 @@ impl Kuco {
                 }
             }
 
+            // Reset search buffer
+            match self.view.interact_mode  {
+                InteractionMode::NORMAL => {
+                    mode_state.search.input = "".to_owned();
+                },
+                InteractionMode::SEARCH => {},
+            }
+
             terminal.draw(|frame| {
                 self.draw_view(frame, &mut mode_state);
             })?;
@@ -144,9 +152,6 @@ impl Kuco {
     ) -> color_eyre::Result<()> {
         match self.view.interact_mode {
             InteractionMode::NORMAL => {
-                // Reset search input if InteractionMode is Normal
-                mode_state.search.input = "".to_owned();
-
                 // Handle key events
                 match key_event.code {
                     KeyCode::Esc | KeyCode::Char('q') => self.events.send(AppEvent::Quit),
@@ -183,10 +188,18 @@ impl Kuco {
             InteractionMode::SEARCH => {
                 let matcher = Matcher::new(Config::DEFAULT.match_paths());
 
+                // Init cache when search mode is turned on
+                match self.cache {
+                    Some(_) => {}
+                    None => {
+                        self.cache = self.view.display.clone();
+                    }
+                }
+
                 match key_event.code {
                     KeyCode::Esc => {
                         self.view.interact_mode = InteractionMode::NORMAL;
-                        mode_state.search.input = "".to_owned();
+                        self.cache = None; // Delete cached display list
                         self.events.send(AppEvent::Refresh);
                     }
 
@@ -218,7 +231,7 @@ impl Kuco {
                     KeyCode::Char(to_insert) => {
                         // Check if search buffer is clear or not, and swap search state if it is.
                         if mode_state.search.input.len() > 0 {
-                            self.search(mode_state, matcher);
+                            self.search(mode_state, matcher, self.view.display.clone());
                         }
 
                         mode_state.search.input += &to_insert.to_string();
@@ -229,7 +242,7 @@ impl Kuco {
                             s.truncate(s.len() - 1);
                             mode_state.search.input = s.to_string();
                         }
-                        self.search(mode_state, matcher);
+                        self.search(mode_state, matcher, self.cache.clone());
                     }
                     _ => {}
                 }
@@ -239,9 +252,13 @@ impl Kuco {
     }
 
     // TODO: build a better implementation of this ...
-    fn search(&mut self, state: &mut KubeComponentState, mut matcher: Matcher) {
+    fn search(
+        &mut self,
+        state: &mut KubeComponentState,
+        mut matcher: Matcher,
+        current_list: Option<Vec<String>>,
+    ) {
         let pattern = &state.search.input;
-        let current_list = &self.view.display.clone();
         match current_list {
             Some(display) => {
                 let matches = Pattern::parse(pattern, CaseMatching::Ignore, Normalization::Smart)
