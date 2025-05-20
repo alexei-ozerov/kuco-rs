@@ -79,6 +79,7 @@ impl Kuco {
                         kube_state.containers_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.containers_state;
+                    self.refresh_containers_selection(&mode_state);
                 }
                 ViewMode::LOGS => {
                     if kube_state.logs_state.list_state.selected() == None {
@@ -119,7 +120,10 @@ impl Kuco {
                             // self.view.update().await; // TODO: Check why this was written
                             self.transition_ns_to_pod_view(&mut mode_state).await;
                         }
-                        ViewMode::PODS => self.view.view_mode = ViewMode::CONT,
+                        ViewMode::PODS => {
+                            self.view.update().await;
+                            self.transition_pod_to_cont_view(&mut mode_state).await;
+                        },
                         ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
                         ViewMode::LOGS => {}
                     },
@@ -133,8 +137,14 @@ impl Kuco {
                             // TODO: Find a cleaner way to do this
                             self.view.data.current_pod_name = None;
                             mode_state.list_state.select(Some(0));
-                        }
-                        ViewMode::CONT => self.view.view_mode = ViewMode::PODS,
+                        },
+                        ViewMode::CONT => {
+                            self.view.view_mode = ViewMode::PODS;
+                            self.view.update().await;
+
+                            self.view.data.current_container = None;
+                            mode_state.list_state.select(Some(0));
+                        },
                         ViewMode::LOGS => self.view.view_mode = ViewMode::CONT,
                     },
                 },
@@ -287,6 +297,18 @@ impl Kuco {
         self.running = false;
     }
 
+    pub fn refresh_containers_selection(&mut self, component_state: &KubeComponentState) {
+        let co_index = component_state.list_state.selected();
+        let co_list = &self.view.display.as_ref().unwrap();
+
+        let mut co: &String = &"none".to_string();
+        if co_list.len() > 0 as usize {
+            co = &co_list[co_index.unwrap()];
+        }
+
+        self.view.data.current_container = Some(co.clone());
+    }
+
     pub fn refresh_pods_selection(&mut self, component_state: &KubeComponentState) {
         let po_index = component_state.list_state.selected();
         let po_list = &self.view.display.as_ref().unwrap();
@@ -328,7 +350,7 @@ impl Kuco {
     }
 
     pub async fn transition_pod_to_cont_view(&mut self, component_state: &KubeComponentState) {
-        self.refresh_pods_selection(component_state); // Update Current Namespace
+        self.refresh_pods_selection(component_state); // Update Current Pod Name
         self.view.view_mode = ViewMode::CONT;
         self.view.update_widget_kube_data().await; // Update View
     }

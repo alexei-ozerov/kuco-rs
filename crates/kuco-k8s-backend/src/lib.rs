@@ -1,5 +1,5 @@
 use k8s_openapi::api::apps::v1::{Deployment, ReplicaSet, StatefulSet};
-use k8s_openapi::api::core::v1::{Namespace, Pod};
+use k8s_openapi::api::core::v1::{Container, Namespace, Pod};
 
 use kube::ResourceExt;
 use kube::{
@@ -235,6 +235,39 @@ impl PodData {
         }
 
         self.list = pod_info_list;
+
+        Ok(())
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ContainerData {
+    pub names: Vec<String>,
+}
+
+impl ContainerData {
+    pub fn new() -> Self {
+        ContainerData { names: Vec::new() }
+    }
+
+    pub async fn update(
+        &mut self,
+        client: Client,
+        ns: &str,
+        po_name: &str,
+    ) -> Result<(), KucoBackendError> {
+        let pod_api: Api<Pod> = Api::namespaced(client, ns);
+        let pod: Pod = pod_api.get(po_name).await?;
+
+        let container_names: Vec<String> = pod
+            .spec
+            .and_then(|spec| Some(spec.containers)) //Use and_then for cleaner handling of Option
+            .unwrap_or_default() //If spec or containers is None, return empty vector
+            .into_iter()
+            .map(|container| container.name)
+            .collect();
+
+        self.names = container_names;
 
         Ok(())
     }
