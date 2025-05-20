@@ -4,7 +4,7 @@
 
 use ratatui::widgets::ListState;
 
-use kuco_k8s_backend::{KubeContext, NamespaceData, PodData, PodInfo};
+use kuco_k8s_backend::{ContainerData, KubeContext, NamespaceData, PodData, PodInfo};
 
 /*
  * Create a generic Kube Component State Structure.
@@ -45,10 +45,11 @@ pub struct KubeData {
     pub pods: PodData,
     pub current_pod: PodInfo,
     pub current_pod_name: Option<String>,
-    pub container: Option<String>,
+    pub container: ContainerData,
     pub current_container: Option<String>, // TODO: Create custom types ...
 }
 
+// TODO: Why do you use default() sometimes and new() other times ... standarize please
 impl KubeData {
     pub async fn new() -> Self {
         KubeData {
@@ -58,7 +59,7 @@ impl KubeData {
             pods: PodData::default(),
             current_pod: PodInfo::default(),
             current_pod_name: None,
-            container: None,
+            container: ContainerData::new(),
             current_container: None,
         }
     }
@@ -83,6 +84,12 @@ impl KubeData {
         //     .collect();
 
         ref_pods_vec
+    }
+
+    pub fn get_containers(&mut self) -> Vec<String> {
+        let ref_cont_vec = self.container.names.clone();
+
+        ref_cont_vec
     }
 
     pub async fn update_all(&mut self) {
@@ -130,6 +137,35 @@ impl KubeData {
             .await;
 
         self.pods.names = self.get_pods();
+    }
+
+    pub async fn update_containers_names_list(&mut self) {
+        let ns: String;
+        match &self.current_namespace {
+            Some(s) => ns = s.to_owned(),
+            None => ns = "default".to_owned(),
+        };
+
+        match &self.current_pod_name {
+            Some(po) => {
+                let _ = self
+                    .container
+                    .update(
+                        self.context
+                            .client
+                            .clone() // TODO: check if there is a way to avoid cloning ...
+                            .expect("[ERROR] Client is None."),
+                        &ns,
+                        &po,
+                    )
+                    .await;
+
+                self.container.names = self.get_containers();
+            }
+            None => {
+                tracing::warn!("No current pod selected. Nothing to do. Could be a potential bug. ;)");
+            }
+        };
     }
 
     pub async fn update_pods_names_list(&mut self) {
