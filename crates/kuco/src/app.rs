@@ -121,7 +121,6 @@ impl Kuco {
                             self.transition_ns_to_pod_view(&mut mode_state).await;
                         }
                         ViewMode::PODS => {
-                            self.view.update().await;
                             self.transition_pod_to_cont_view(&mut mode_state).await;
                         },
                         ViewMode::CONT => self.view.view_mode = ViewMode::LOGS,
@@ -140,7 +139,7 @@ impl Kuco {
                         },
                         ViewMode::CONT => {
                             self.view.view_mode = ViewMode::PODS;
-                            self.view.update().await;
+                            self.view.update_widget_kube_data().await;
 
                             self.view.data.current_container = None;
                             mode_state.list_state.select(Some(0));
