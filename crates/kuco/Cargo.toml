@@ -9,15 +9,16 @@ license = { workspace = true }
 
 [dependencies]
 kuco-k8s-backend = { path = "../kuco-k8s-backend/" }
+kuco-cache = { path = "../kuco-cache/" }
 
 crossterm = { workspace = true }
 futures = { workspace = true }
 ratatui = { workspace = true }
 tokio = { workspace = true }
 color-eyre = { workspace = true }
+tracing = { workspace = true }
 rayon = "1.10.0"
 tracing-error = "0.2.1"
-tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
 directories = "6.0.0"
 lazy_static = "1.5.0"

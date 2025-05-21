@@ -103,9 +103,11 @@ impl Kuco {
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
-                Event::Crossterm(event) => if let crossterm::event::Event::Key(key_event) = event {
-                    self.handle_key_events(key_event, mode_state)?
-                },
+                Event::Crossterm(event) => {
+                    if let crossterm::event::Event::Key(key_event) = event {
+                        self.handle_key_events(key_event, mode_state)?
+                    }
+                }
                 Event::App(app_event) => match app_event {
                     // TODO: Implement a process that runs on another thread in a non-blocking
                     // fashion and continually updates the sqlite database with cluster
@@ -186,7 +188,10 @@ impl Kuco {
                         // Check for list length (since display and list_state.selected are set on
                         // initialization, I'm using unwrap() for now ... TODO: replace late with
                         // something less sketchy.)
-                        if !self.view.display.clone().unwrap().is_empty() && mode_state.list_state.selected().unwrap() <= self.view.display.clone().unwrap().len() - 2_usize {
+                        if !self.view.display.clone().unwrap().is_empty()
+                            && mode_state.list_state.selected().unwrap()
+                                <= self.view.display.clone().unwrap().len() - 2_usize
+                        {
                             mode_state.list_state.select_next()
                         }
                     }
@@ -227,7 +232,10 @@ impl Kuco {
                         // Check for list length (since display and list_state.selected are set on
                         // initialization, I'm using unwrap() for now ... TODO: replace late with
                         // something less sketchy.)
-                        if !self.view.display.clone().unwrap().is_empty() && mode_state.list_state.selected().unwrap() <= self.view.display.clone().unwrap().len() - 2_usize {
+                        if !self.view.display.clone().unwrap().is_empty()
+                            && mode_state.list_state.selected().unwrap()
+                                <= self.view.display.clone().unwrap().len() - 2_usize
+                        {
                             mode_state.list_state.select_next()
                         }
                     }

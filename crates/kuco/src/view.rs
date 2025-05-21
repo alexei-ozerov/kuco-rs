@@ -69,7 +69,7 @@ impl StatefulWidget for KubeWidget {
         } else {
             // TODO: Is there a way to not take a clone of self here? Cannot pass &mut self to
             // render() method
-            display_list = self.display.clone().unwrap(); 
+            display_list = self.display.clone().unwrap();
         }
 
         if self.view_mode == ViewMode::LOGS {

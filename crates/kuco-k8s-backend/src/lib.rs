@@ -273,7 +273,8 @@ impl ContainerData {
         let pod: Pod = pod_api.get(po_name).await?;
 
         let container_names: Vec<String> = pod
-            .spec.map(|spec| spec.containers) //Use and_then for cleaner handling of Option
+            .spec
+            .map(|spec| spec.containers) //Use and_then for cleaner handling of Option
             .unwrap_or_default() //If spec or containers is None, return empty vector
             .into_iter()
             .map(|container| container.name)

@@ -7,7 +7,8 @@
     "bacon@3.12.0",
     "docker@27.5.1",
     "kind@0.27.0",
-    "kubectl@1.33.0"
+    "kubectl@1.33.0",
+    "valkey@8.0.3"
   ],
   "shell": {
     "init_hook": [

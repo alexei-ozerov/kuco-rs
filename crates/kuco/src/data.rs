@@ -48,7 +48,7 @@ pub struct KubeData {
     pub current_container: Option<String>,
 
     pub current_pod_info: PodInfo,
- 
+
     pub namespaces: NamespaceData,
     pub pods: PodData,
     pub containers: ContainerData,
@@ -86,20 +86,14 @@ impl KubeData {
     }
 
     pub fn get_pods(&mut self) -> Vec<String> {
-        
-
         self.pods.names.clone()
     }
 
     pub fn get_logs(&mut self) -> Vec<String> {
-        
-
         self.logs.lines.clone()
     }
 
     pub fn get_containers(&mut self) -> Vec<String> {
-        
-
         self.containers.names.clone()
     }
 

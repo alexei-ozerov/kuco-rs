@@ -19,7 +19,7 @@ pub fn init_tracing() -> Result<WorkerGuard> {
     // By default, the subscriber is configured to log all events with a level of `DEBUG` or higher,
     // but this can be changed by setting the `RUST_LOG` environment variable.
     let env_filter = EnvFilter::builder()
-        .with_default_directive(Level::DEBUG.into())
+        .with_default_directive(Level::INFO.into())
         .from_env_lossy();
 
     tracing_subscriber::fmt()

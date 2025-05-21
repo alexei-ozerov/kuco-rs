@@ -1,0 +1,13 @@
+[package]
+name = "kuco-cache"
+version.workspace = true
+description.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
+
+[dependencies]
+tracing = { workspace = true }
+color-eyre = { workspace = true }
+
+redis = { version = "0.31.0", features = ["tokio-comp"] }
