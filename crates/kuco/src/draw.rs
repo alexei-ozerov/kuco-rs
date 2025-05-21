@@ -29,7 +29,7 @@ impl Kuco {
         let top_chunk = chunks[1];
         let top_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(92), Constraint::Percentage(8)])
+            .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
             .split(top_chunk);
         let top_inner_title = top_inner_chunks[0];
         let top_inner_nav = top_inner_chunks[1];
@@ -75,7 +75,7 @@ impl Kuco {
         let top_nav_line = Line::from(Span::from("  S A  "));
         let bot_nav_line = Line::from(Span::from("  D D  "));
         let nav_text: Vec<Line<'_>> = vec![top_nav_line, nav_line, bot_nav_line];
-        let nav = Paragraph::new(nav_text).alignment(Alignment::Right).block(
+        let nav = Paragraph::new(nav_text).alignment(Alignment::Center).block(
             Block::new()
                 .borders(Borders::ALL)
                 .border_type(BorderType::Rounded)
