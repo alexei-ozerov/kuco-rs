@@ -51,32 +51,24 @@ impl Kuco {
         let _nav_row_3 = [" ", "D", "D", " "];
 
         let nav_line: Line = match self.view.view_mode {
-            ViewMode::NS => {
-                Line::from(vec![
-                    Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" P C L"),
-                ])
-            }
-            ViewMode::PODS => {
-                Line::from(vec![
-                    Span::from("N "),
-                    Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" C L"),
-                ])
-            }
-            ViewMode::CONT => {
-                Line::from(vec![
-                    Span::from("N P "),
-                    Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
-                    Span::from(" L"),
-                ])
-            }
-            ViewMode::LOGS => {
-                Line::from(vec![
-                    Span::from("N P C "),
-                    Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
-                ])
-            }
+            ViewMode::NS => Line::from(vec![
+                Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
+                Span::from(" P C L"),
+            ]),
+            ViewMode::PODS => Line::from(vec![
+                Span::from("N "),
+                Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
+                Span::from(" C L"),
+            ]),
+            ViewMode::CONT => Line::from(vec![
+                Span::from("N P "),
+                Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
+                Span::from(" L"),
+            ]),
+            ViewMode::LOGS => Line::from(vec![
+                Span::from("N P C "),
+                Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
+            ]),
         };
 
         // TODO: So much wrong here ... this is just a mock-up.

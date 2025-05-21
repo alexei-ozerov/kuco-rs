@@ -40,10 +40,39 @@ I've included a DevBox (TODO: add links and all that) configuration which will s
 with Rust, Bacon, Kubectl, Docker, and KinD. You can find additional scripts in the `scripts` repository for deploying test 
 pods, or running tests of adding and deleting resources.
 
+### Valkey
+KuCo uses `redis-rs` to cache Kube data in Valkey. In order to use DevBox's instance of Valkey, please check out the following instructions:
+
+```
+valkey NOTES:
+Running `devbox services start valkey` will start valkey as a daemon in the background.
+
+You can manually start Valkey in the foreground by running `valkey-server $VALKEY_CONF --port $VALKEY_PORT`.
+
+Logs, pidfile, and data dumps are stored in `.devbox/virtenv/valkey`. You can change this by modifying the `dir` directive in `devbox.d/valkey/valkey.conf`
+
+Services:
+* valkey
+
+Use `devbox services start|stop [service]` to interact with services
+
+This plugin creates the following helper files:
+* ${PROJECT_PATH}/kuco-rs/devbox.d/valkey/valkey.conf
+* ${PROJECT_PATH}/kuco-rs/.devbox/virtenv/valkey/process-compose.yaml
+
+This plugin sets the following environment variables:
+* VALKEY_PORT=6379
+* VALKEY_CONF=${PROJECT_PATH}/kuco-rs/devbox.d/valkey/valkey.conf
+
+To show this information, run `devbox info valkey`
+
+```
+
 ### Project Structure
 - kuco
 - kuco-backend-k8s
 - kuco-backend-sqlite
+- kuco-cache
 
 ## Technologies Used
 - [Sqlite](https://sqlite.org/) 

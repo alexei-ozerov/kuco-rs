@@ -337,6 +337,55 @@
           "store_path": "/nix/store/fdgipbzshck7iqmv06jni83bwvqzdbbf-rustup-1.27.1"
         }
       }
+    },
+    "valkey@8.0.3": {
+      "last_modified": "2025-05-16T20:19:48Z",
+      "plugin_version": "0.0.1",
+      "resolved": "github:NixOS/nixpkgs/12a55407652e04dcf2309436eb06fef0d3713ef3#valkey",
+      "source": "devbox-search",
+      "version": "8.0.3",
+      "systems": {
+        "aarch64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/8rxp4ah1q4fcjli6fkijw3y145bj1iyi-valkey-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/8rxp4ah1q4fcjli6fkijw3y145bj1iyi-valkey-8.0.3"
+        },
+        "aarch64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/4y4zrsscpjifh0b7axp55c3hxb313ikh-valkey-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/4y4zrsscpjifh0b7axp55c3hxb313ikh-valkey-8.0.3"
+        },
+        "x86_64-darwin": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/f7bl0z0566whc7b3g948apj6wazacpk4-valkey-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/f7bl0z0566whc7b3g948apj6wazacpk4-valkey-8.0.3"
+        },
+        "x86_64-linux": {
+          "outputs": [
+            {
+              "name": "out",
+              "path": "/nix/store/csq1h8pgjrkqcrg80ixdx5ccmc3bj2mr-valkey-8.0.3",
+              "default": true
+            }
+          ],
+          "store_path": "/nix/store/csq1h8pgjrkqcrg80ixdx5ccmc3bj2mr-valkey-8.0.3"
+        }
+      }
     }
   }
 }
