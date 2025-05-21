@@ -58,31 +58,31 @@ impl Kuco {
         while self.running {
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
-            let mut mode_state: &mut KubeComponentState;
+            let mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
-                    if kube_state.namespace_state.list_state.selected() == None {
+                    if kube_state.namespace_state.list_state.selected().is_none() {
                         kube_state.namespace_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.namespace_state;
-                    self.refresh_namespace_selection(&mode_state);
+                    self.refresh_namespace_selection(mode_state);
                 }
                 ViewMode::PODS => {
-                    if kube_state.pods_state.list_state.selected() == None {
+                    if kube_state.pods_state.list_state.selected().is_none() {
                         kube_state.pods_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.pods_state;
-                    self.refresh_pods_selection(&mode_state);
+                    self.refresh_pods_selection(mode_state);
                 }
                 ViewMode::CONT => {
-                    if kube_state.containers_state.list_state.selected() == None {
+                    if kube_state.containers_state.list_state.selected().is_none() {
                         kube_state.containers_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.containers_state;
-                    self.refresh_containers_selection(&mode_state);
+                    self.refresh_containers_selection(mode_state);
                 }
                 ViewMode::LOGS => {
-                    if kube_state.containers_state.list_state.selected() == None {
+                    if kube_state.containers_state.list_state.selected().is_none() {
                         kube_state.containers_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.logs_state;
@@ -98,16 +98,13 @@ impl Kuco {
             }
 
             terminal.draw(|frame| {
-                self.draw_view(frame, &mut mode_state);
+                self.draw_view(frame, mode_state);
             })?;
 
             match self.events.next().await? {
                 Event::Tick => self.tick(),
-                Event::Crossterm(event) => match event {
-                    crossterm::event::Event::Key(key_event) => {
-                        self.handle_key_events(key_event, &mut mode_state)?
-                    }
-                    _ => {}
+                Event::Crossterm(event) => if let crossterm::event::Event::Key(key_event) = event {
+                    self.handle_key_events(key_event, mode_state)?
                 },
                 Event::App(app_event) => match app_event {
                     // TODO: Implement a process that runs on another thread in a non-blocking
@@ -117,13 +114,13 @@ impl Kuco {
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
-                            self.transition_ns_to_pod_view(&mut mode_state).await;
+                            self.transition_ns_to_pod_view(mode_state).await;
                         }
                         ViewMode::PODS => {
-                            self.transition_pod_to_cont_view(&mut mode_state).await;
+                            self.transition_pod_to_cont_view(mode_state).await;
                         }
                         ViewMode::CONT => {
-                            self.transition_cont_to_log_view(&mut mode_state).await;
+                            self.transition_cont_to_log_view(mode_state).await;
                         }
                         ViewMode::LOGS => {}
                     },
@@ -189,12 +186,8 @@ impl Kuco {
                         // Check for list length (since display and list_state.selected are set on
                         // initialization, I'm using unwrap() for now ... TODO: replace late with
                         // something less sketchy.)
-                        if self.view.display.clone().unwrap().len() > 0 {
-                            if mode_state.list_state.selected().unwrap()
-                                <= self.view.display.clone().unwrap().len() - 2 as usize
-                            {
-                                mode_state.list_state.select_next()
-                            }
+                        if !self.view.display.clone().unwrap().is_empty() && mode_state.list_state.selected().unwrap() <= self.view.display.clone().unwrap().len() - 2_usize {
+                            mode_state.list_state.select_next()
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => mode_state.list_state.select_previous(),
@@ -234,12 +227,8 @@ impl Kuco {
                         // Check for list length (since display and list_state.selected are set on
                         // initialization, I'm using unwrap() for now ... TODO: replace late with
                         // something less sketchy.)
-                        if self.view.display.clone().unwrap().len() > 0 {
-                            if mode_state.list_state.selected().unwrap()
-                                <= self.view.display.clone().unwrap().len() - 2 as usize
-                            {
-                                mode_state.list_state.select_next()
-                            }
+                        if !self.view.display.clone().unwrap().is_empty() && mode_state.list_state.selected().unwrap() <= self.view.display.clone().unwrap().len() - 2_usize {
+                            mode_state.list_state.select_next()
                         }
                     }
                     KeyCode::Down => mode_state.list_state.select_previous(),
@@ -247,7 +236,7 @@ impl Kuco {
                     // Search Entry
                     KeyCode::Char(to_insert) => {
                         // Check if search buffer is clear or not, and swap search state if it is.
-                        if mode_state.search.input.len() > 0 {
+                        if !mode_state.search.input.is_empty() {
                             self.search(mode_state, matcher, self.view.display.clone());
                         }
 
@@ -255,7 +244,7 @@ impl Kuco {
                     }
                     KeyCode::Backspace => {
                         let s = &mut mode_state.search.input;
-                        if s.len() > 0 {
+                        if !s.is_empty() {
                             s.truncate(s.len() - 1);
                             mode_state.search.input = s.to_string();
                         }
@@ -276,20 +265,17 @@ impl Kuco {
         current_list: Option<Vec<String>>,
     ) {
         let pattern = &state.search.input;
-        match current_list {
-            Some(display) => {
-                let matches = Pattern::parse(pattern, CaseMatching::Ignore, Normalization::Smart)
-                    .match_list(display, &mut matcher);
+        if let Some(display) = current_list {
+            let matches = Pattern::parse(pattern, CaseMatching::Ignore, Normalization::Smart)
+                .match_list(display, &mut matcher);
 
-                state.list_state.select(Some(0));
-                self.view.display = Some(
-                    matches
-                        .iter()
-                        .map(|matched_item| matched_item.0.to_owned())
-                        .collect(),
-                );
-            }
-            None => {}
+            state.list_state.select(Some(0));
+            self.view.display = Some(
+                matches
+                    .iter()
+                    .map(|matched_item| matched_item.0.to_owned())
+                    .collect(),
+            );
         }
     }
 
@@ -309,7 +295,7 @@ impl Kuco {
         let lo_list = &self.view.display.as_ref().unwrap();
 
         let mut lo: &String = &"none".to_string();
-        if lo_list.len() > 0 as usize {
+        if !lo_list.is_empty() {
             lo = &lo_list[lo_index.unwrap()];
         }
 
@@ -322,7 +308,7 @@ impl Kuco {
         let co_list = &self.view.display.as_ref().unwrap();
 
         let mut co: &String = &"none".to_string();
-        if co_list.len() > 0 as usize {
+        if !co_list.is_empty() {
             co = &co_list[co_index.unwrap()];
         }
 
@@ -334,7 +320,7 @@ impl Kuco {
         let po_list = &self.view.display.as_ref().unwrap();
 
         let mut po: &String = &"-".to_string();
-        if po_list.len() > 0 as usize {
+        if !po_list.is_empty() {
             po = &po_list[po_index.unwrap()];
         }
 
@@ -346,7 +332,7 @@ impl Kuco {
         let ns_list = &self.view.display.as_ref().unwrap();
 
         let mut ns: &String = &"default".to_string();
-        if ns_list.len() > 0 {
+        if !ns_list.is_empty() {
             ns = &ns_list[ns_index.unwrap()];
         }
 

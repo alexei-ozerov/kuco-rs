@@ -9,7 +9,7 @@ use ratatui::{
 use crate::{app::*, data::KubeComponentState};
 
 impl Kuco {
-    pub fn draw_view(&mut self, f: &mut Frame<'_>, mut mode_state: &mut KubeComponentState) {
+    pub fn draw_view(&mut self, f: &mut Frame<'_>, mode_state: &mut KubeComponentState) {
         // Setup Screen Layout
         let chunks = Layout::default()
             .direction(Direction::Vertical)
@@ -46,44 +46,43 @@ impl Kuco {
         let bot_chunk = chunks[3];
 
         // Navigation
-        let _nav_row_1 = vec![" ", "S", "A", " "];
-        let _nav_row_2 = vec!["N", "P", "C", "L"];
-        let _nav_row_3 = vec![" ", "D", "D", " "];
+        let _nav_row_1 = [" ", "S", "A", " "];
+        let _nav_row_2 = ["N", "P", "C", "L"];
+        let _nav_row_3 = [" ", "D", "D", " "];
 
-        let nav_line: Line;
-        match self.view.view_mode {
+        let nav_line: Line = match self.view.view_mode {
             ViewMode::NS => {
-                nav_line = Line::from(vec![
+                Line::from(vec![
                     Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
                     Span::from(" P C L"),
-                ]);
+                ])
             }
             ViewMode::PODS => {
-                nav_line = Line::from(vec![
+                Line::from(vec![
                     Span::from("N "),
                     Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
                     Span::from(" C L"),
-                ]);
+                ])
             }
             ViewMode::CONT => {
-                nav_line = Line::from(vec![
+                Line::from(vec![
                     Span::from("N P "),
                     Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
                     Span::from(" L"),
-                ]);
+                ])
             }
             ViewMode::LOGS => {
-                nav_line = Line::from(vec![
+                Line::from(vec![
                     Span::from("N P C "),
                     Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
-                ]);
+                ])
             }
-        }
+        };
 
         // TODO: So much wrong here ... this is just a mock-up.
         let top_nav_line = Line::from(Span::from("  S A  "));
         let bot_nav_line = Line::from(Span::from("  D D  "));
-        let nav_text: Vec<Line<'_>> = vec![top_nav_line.into(), nav_line, bot_nav_line.into()];
+        let nav_text: Vec<Line<'_>> = vec![top_nav_line, nav_line, bot_nav_line];
         let nav = Paragraph::new(nav_text).alignment(Alignment::Right).block(
             Block::new()
                 .borders(Borders::ALL)
@@ -128,7 +127,7 @@ impl Kuco {
             .bg(Color::White)
             .add_modifier(Modifier::ITALIC | Modifier::BOLD);
         let title = Paragraph::new(Text::from(Span::styled(
-            format!("KuCo v0.1.0"),
+            "KuCo v0.1.0".to_string(),
             heading_style,
         )))
         .alignment(Alignment::Left);
@@ -162,7 +161,7 @@ impl Kuco {
         f.render_stateful_widget(
             self.view.clone(), // TODO: ugh, get rid of this clone later
             mid_inner_list,
-            &mut mode_state,
+            mode_state,
         );
 
         // Render Input Block

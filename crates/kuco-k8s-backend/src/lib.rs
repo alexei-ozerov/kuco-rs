@@ -44,6 +44,12 @@ pub struct NamespaceData {
     pub names: Vec<String>,
 }
 
+impl Default for NamespaceData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NamespaceData {
     pub fn new() -> Self {
         NamespaceData { names: Vec::new() }
@@ -112,27 +118,27 @@ impl PodInfo {
                 let owner_name = &owner.name;
                 match kind.as_str() {
                     "ReplicaSet" => {
-                        let rs_api: Api<ReplicaSet> = Api::namespaced(client.clone(), &namespace);
-                        if let Ok(rs) = rs_api.get(&owner_name).await {
+                        let rs_api: Api<ReplicaSet> = Api::namespaced(client.clone(), namespace);
+                        if let Ok(rs) = rs_api.get(owner_name).await {
                             self.desired_replicas = rs.spec.and_then(|s| s.replicas);
-                            self.replicas = rs.status.and_then(|s| Some(s.replicas));
+                            self.replicas = rs.status.map(|s| s.replicas);
                             break;
                         }
                     }
                     "Deployment" => {
                         let deploy_api: Api<Deployment> =
-                            Api::namespaced(client.clone(), &namespace);
-                        if let Ok(deploy) = deploy_api.get(&owner_name).await {
+                            Api::namespaced(client.clone(), namespace);
+                        if let Ok(deploy) = deploy_api.get(owner_name).await {
                             self.desired_replicas = deploy.spec.and_then(|s| s.replicas);
                             self.replicas = deploy.status.and_then(|s| s.replicas);
                             break;
                         }
                     }
                     "StatefulSet" => {
-                        let sts_api: Api<StatefulSet> = Api::namespaced(client.clone(), &namespace);
-                        if let Ok(sts) = sts_api.get(&owner_name).await {
+                        let sts_api: Api<StatefulSet> = Api::namespaced(client.clone(), namespace);
+                        if let Ok(sts) = sts_api.get(owner_name).await {
                             self.desired_replicas = sts.spec.and_then(|s| s.replicas);
-                            self.replicas = sts.status.and_then(|s| Some(s.replicas));
+                            self.replicas = sts.status.map(|s| s.replicas);
                             break;
                         }
                     }
@@ -153,7 +159,7 @@ pub struct PodData {
 
 impl PodData {
     pub async fn get_names(&mut self, client: Client, namespace: &str) -> Result<(), kube::Error> {
-        let pods: Api<Pod> = Api::namespaced(client.clone(), &namespace);
+        let pods: Api<Pod> = Api::namespaced(client.clone(), namespace);
 
         // List all pods in the namespace.
         let lp = ListParams::default();
@@ -172,7 +178,7 @@ impl PodData {
 
     pub async fn update_all(&mut self, client: Client, namespace: &str) -> Result<(), kube::Error> {
         // Get a reference to the Pod API within the specified namespace.
-        let pods: Api<Pod> = Api::namespaced(client.clone(), &namespace);
+        let pods: Api<Pod> = Api::namespaced(client.clone(), namespace);
 
         // List all pods in the namespace.
         let lp = ListParams::default();
@@ -197,17 +203,17 @@ impl PodData {
                     match kind.as_str() {
                         "ReplicaSet" => {
                             let rs_api: Api<k8s_openapi::api::apps::v1::ReplicaSet> =
-                                Api::namespaced(client.clone(), &namespace);
-                            if let Ok(rs) = rs_api.get(&owner_name).await {
+                                Api::namespaced(client.clone(), namespace);
+                            if let Ok(rs) = rs_api.get(owner_name).await {
                                 desired_replicas = rs.spec.and_then(|s| s.replicas);
-                                replicas = rs.status.and_then(|s| Some(s.replicas));
+                                replicas = rs.status.map(|s| s.replicas);
                                 break; // Found the ReplicaSet, no need to check others
                             }
                         }
                         "Deployment" => {
                             let deploy_api: Api<k8s_openapi::api::apps::v1::Deployment> =
-                                Api::namespaced(client.clone(), &namespace);
-                            if let Ok(deploy) = deploy_api.get(&owner_name).await {
+                                Api::namespaced(client.clone(), namespace);
+                            if let Ok(deploy) = deploy_api.get(owner_name).await {
                                 desired_replicas = deploy.spec.and_then(|s| s.replicas);
                                 replicas = deploy.status.and_then(|s| s.replicas);
                                 break; // Found the Deployment
@@ -215,10 +221,10 @@ impl PodData {
                         }
                         "StatefulSet" => {
                             let sts_api: Api<k8s_openapi::api::apps::v1::StatefulSet> =
-                                Api::namespaced(client.clone(), &namespace);
-                            if let Ok(sts) = sts_api.get(&owner_name).await {
+                                Api::namespaced(client.clone(), namespace);
+                            if let Ok(sts) = sts_api.get(owner_name).await {
                                 desired_replicas = sts.spec.and_then(|s| s.replicas);
-                                replicas = sts.status.and_then(|s| Some(s.replicas));
+                                replicas = sts.status.map(|s| s.replicas);
                                 break; // Found the StatefulSet
                             }
                         }
@@ -246,6 +252,12 @@ pub struct ContainerData {
     pub names: Vec<String>,
 }
 
+impl Default for ContainerData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ContainerData {
     pub fn new() -> Self {
         ContainerData { names: Vec::new() }
@@ -261,8 +273,7 @@ impl ContainerData {
         let pod: Pod = pod_api.get(po_name).await?;
 
         let container_names: Vec<String> = pod
-            .spec
-            .and_then(|spec| Some(spec.containers)) //Use and_then for cleaner handling of Option
+            .spec.map(|spec| spec.containers) //Use and_then for cleaner handling of Option
             .unwrap_or_default() //If spec or containers is None, return empty vector
             .into_iter()
             .map(|container| container.name)
@@ -277,6 +288,12 @@ impl ContainerData {
 #[derive(Clone, Debug)]
 pub struct LogData {
     pub lines: Vec<String>,
+}
+
+impl Default for LogData {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl LogData {
