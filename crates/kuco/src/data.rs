@@ -86,21 +86,21 @@ impl KubeData {
     }
 
     pub fn get_pods(&mut self) -> Vec<String> {
-        let ref_pods_vec = self.pods.names.clone();
+        
 
-        ref_pods_vec
+        self.pods.names.clone()
     }
 
     pub fn get_logs(&mut self) -> Vec<String> {
-        let ref_logs_vec = self.logs.lines.clone();
+        
 
-        ref_logs_vec
+        self.logs.lines.clone()
     }
 
     pub fn get_containers(&mut self) -> Vec<String> {
-        let ref_cont_vec = self.containers.names.clone();
+        
 
-        ref_cont_vec
+        self.containers.names.clone()
     }
 
     pub async fn update_all(&mut self) {
@@ -129,11 +129,9 @@ impl KubeData {
 
     // Update PodData object and Pods List Vector
     pub async fn update_pods(&mut self) {
-        let ns: String;
-
-        match &self.current_namespace {
-            Some(s) => ns = s.to_owned(),
-            None => ns = "default".to_owned(),
+        let ns: String = match &self.current_namespace {
+            Some(s) => s.to_owned(),
+            None => "default".to_owned(),
         };
 
         let _ = self
@@ -151,10 +149,9 @@ impl KubeData {
     }
 
     pub async fn update_logs_lines_list(&mut self) {
-        let ns: String;
-        match &self.current_namespace {
-            Some(s) => ns = s.to_owned(),
-            None => ns = "default".to_owned(),
+        let ns: String = match &self.current_namespace {
+            Some(s) => s.to_owned(),
+            None => "default".to_owned(),
         };
 
         match &self.current_pod_name {
@@ -169,8 +166,8 @@ impl KubeData {
                                     .clone() // TODO: check if there is a way to avoid cloning ...
                                     .expect("[ERROR] Client is None."),
                                 &ns,
-                                &po,
-                                &co,
+                                po,
+                                co,
                             )
                             .await;
 
@@ -192,10 +189,9 @@ impl KubeData {
     }
 
     pub async fn update_containers_names_list(&mut self) {
-        let ns: String;
-        match &self.current_namespace {
-            Some(s) => ns = s.to_owned(),
-            None => ns = "default".to_owned(),
+        let ns: String = match &self.current_namespace {
+            Some(s) => s.to_owned(),
+            None => "default".to_owned(),
         };
 
         match &self.current_pod_name {
@@ -208,7 +204,7 @@ impl KubeData {
                             .clone() // TODO: check if there is a way to avoid cloning ...
                             .expect("[ERROR] Client is None."),
                         &ns,
-                        &po,
+                        po,
                     )
                     .await;
 
@@ -223,11 +219,9 @@ impl KubeData {
     }
 
     pub async fn update_pods_names_list(&mut self) {
-        let ns: String;
-
-        match &self.current_namespace {
-            Some(s) => ns = s.to_owned(),
-            None => ns = "default".to_owned(),
+        let ns: String = match &self.current_namespace {
+            Some(s) => s.to_owned(),
+            None => "default".to_owned(),
         };
 
         let _ = self
@@ -249,6 +243,12 @@ pub struct KubeWidgetState {
     pub pods_state: KubeComponentState,
     pub containers_state: KubeComponentState,
     pub logs_state: KubeComponentState,
+}
+
+impl Default for KubeWidgetState {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl KubeWidgetState {

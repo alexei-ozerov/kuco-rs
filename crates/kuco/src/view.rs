@@ -59,7 +59,7 @@ impl StatefulWidget for KubeWidget {
         let block = Block::default().title_alignment(Alignment::Left);
 
         let mut display_list;
-        if self.display.clone().unwrap().len() == 0 as usize {
+        if self.display.clone().unwrap().is_empty() {
             match self.view_mode {
                 ViewMode::NS => display_list = self.data.namespaces.names,
                 ViewMode::PODS => display_list = self.data.pods.names,
@@ -87,7 +87,7 @@ impl StatefulWidget for KubeWidget {
 
             // Select first item in index automatically
             // TODO: Make this select the most used namespace
-            if state.list_state.selected() == None {
+            if state.list_state.selected().is_none() {
                 state.list_state.select_first();
             }
         } else {
@@ -101,7 +101,7 @@ impl StatefulWidget for KubeWidget {
                 .repeat_highlight_symbol(true)
                 .direction(ListDirection::BottomToTop);
 
-            if state.list_state.selected() == None {
+            if state.list_state.selected().is_none() {
                 state.list_state.select_first();
             }
         }
