@@ -40,13 +40,15 @@ impl KubeComponentState {
 #[derive(Clone)]
 pub struct KubeData {
     context: KubeContext,
+
+    // Markers for current selection.
     pub current_namespace: Option<String>,
     pub current_pod_name: Option<String>,
     pub current_log_line: Option<String>,
+    pub current_container: Option<String>,
 
     pub current_pod_info: PodInfo,
-    pub current_container: Option<String>, // TODO: Create custom types ...
-    //
+ 
     pub namespaces: NamespaceData,
     pub pods: PodData,
     pub containers: ContainerData,
@@ -103,7 +105,7 @@ impl KubeData {
 
     pub async fn update_all(&mut self) {
         self.update_context().await;
-        self.update_namespaces().await;
+        self.update_namespaces_names_list().await;
         self.update_pods_names_list().await;
     }
 
@@ -114,7 +116,7 @@ impl KubeData {
         }
     }
 
-    pub async fn update_namespaces(&mut self) {
+    pub async fn update_namespaces_names_list(&mut self) {
         self.namespaces
             .update(
                 self.context

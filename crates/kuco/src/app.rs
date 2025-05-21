@@ -25,7 +25,7 @@ pub struct Cache {
 }
 
 // TODO: Find a better place for this.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ViewMode {
     NS,
     PODS,

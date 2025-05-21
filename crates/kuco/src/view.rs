@@ -30,7 +30,7 @@ impl KubeWidget {
         self.data.update_context().await;
         match self.view_mode {
             ViewMode::NS => {
-                self.data.update_namespaces().await;
+                self.data.update_namespaces_names_list().await;
                 self.display = Some(self.data.get_namespaces())
             }
             ViewMode::PODS => {
@@ -53,6 +53,9 @@ impl StatefulWidget for KubeWidget {
     type State = KubeComponentState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let list;
+        let mut reverse_list_flag = true;
+
         let block = Block::default().title_alignment(Alignment::Left);
 
         let mut display_list;
@@ -64,22 +67,15 @@ impl StatefulWidget for KubeWidget {
                 ViewMode::LOGS => display_list = self.data.logs.lines,
             }
         } else {
-            display_list = self.display.clone().unwrap();
+            // TODO: Is there a way to not take a clone of self here? Cannot pass &mut self to
+            // render() method
+            display_list = self.display.clone().unwrap(); 
         }
 
-        // TODO: Implement eq or whatever so this can be an easy if
-        //       or just restructure the match to save space
-        let mut reverse_list_flag = true;
-        match self.view_mode {
-            ViewMode::NS => {}
-            ViewMode::PODS => {}
-            ViewMode::CONT => {}
-            ViewMode::LOGS => {
-                reverse_list_flag = false;
-            }
+        if self.view_mode == ViewMode::LOGS {
+            reverse_list_flag = false;
         }
 
-        let list;
         if reverse_list_flag {
             list = List::new(display_list)
                 .block(block)
@@ -95,6 +91,7 @@ impl StatefulWidget for KubeWidget {
                 state.list_state.select_first();
             }
         } else {
+            // In the case of logs, the vector should be reversed to preserve the key movement.
             display_list.reverse();
             list = List::new(display_list.clone())
                 .block(block)
