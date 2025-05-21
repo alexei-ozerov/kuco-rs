@@ -207,7 +207,7 @@ impl PodData {
                             if let Ok(rs) = rs_api.get(owner_name).await {
                                 desired_replicas = rs.spec.and_then(|s| s.replicas);
                                 replicas = rs.status.map(|s| s.replicas);
-                                break; // Found the ReplicaSet, no need to check others
+                                break;
                             }
                         }
                         "Deployment" => {
@@ -216,7 +216,7 @@ impl PodData {
                             if let Ok(deploy) = deploy_api.get(owner_name).await {
                                 desired_replicas = deploy.spec.and_then(|s| s.replicas);
                                 replicas = deploy.status.and_then(|s| s.replicas);
-                                break; // Found the Deployment
+                                break;
                             }
                         }
                         "StatefulSet" => {
@@ -225,7 +225,7 @@ impl PodData {
                             if let Ok(sts) = sts_api.get(owner_name).await {
                                 desired_replicas = sts.spec.and_then(|s| s.replicas);
                                 replicas = sts.status.map(|s| s.replicas);
-                                break; // Found the StatefulSet
+                                break;
                             }
                         }
                         _ => {}
@@ -274,8 +274,8 @@ impl ContainerData {
 
         let container_names: Vec<String> = pod
             .spec
-            .map(|spec| spec.containers) //Use and_then for cleaner handling of Option
-            .unwrap_or_default() //If spec or containers is None, return empty vector
+            .map(|spec| spec.containers)
+            .unwrap_or_default() // If spec or containers is None, return empty vector
             .into_iter()
             .map(|container| container.name)
             .collect();
