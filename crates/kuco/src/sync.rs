@@ -1,13 +1,11 @@
 use kuco_cache::CacheStore;
-use kuco_k8s_backend::{
-    context::KubeContext,
-    namespaces::NamespaceData,
-    pods::PodData,
-};
+use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
 
+use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
 
+// Run a sync of kube data that KuCo tracks to Valkey
 pub async fn kube_to_valkey_cache_sync(
     mut kube_ctx_clone: KubeContext,
     mut cache_store_clone: CacheStore,
@@ -94,6 +92,24 @@ pub async fn kube_to_valkey_cache_sync(
                         );
                     }
                 }
+            }
+        }
+
+        let current_timestamp_seconds: i64 = Utc::now().timestamp();
+        let timestamp_key = "k8s:sync:last_refreshed_at";
+
+        match cache_store_clone
+            .set(timestamp_key, current_timestamp_seconds)
+            .await
+        {
+            Ok(_) => {
+                tracing::debug!(
+                    "Successfully set last_refreshed_at timestamp: {}",
+                    current_timestamp_seconds
+                );
+            }
+            Err(e) => {
+                tracing::error!("Failed to set last_refreshed_at timestamp in cache: {}", e);
             }
         }
         tracing::info!("Periodic task: Data fetch and cache cycle complete.");
