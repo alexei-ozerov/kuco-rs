@@ -3,14 +3,15 @@ use std::sync::{Arc, Mutex};
 use color_eyre::eyre::{Result, eyre};
 use redis::{AsyncCommands, Client, aio::MultiplexedConnection};
 
-#[derive(Default)]
-struct ArcConn {
-    arc: Arc<Mutex<Option<MultiplexedConnection>>>,
+#[derive(Default, Clone)]
+pub struct ArcConn {
+    pub arc: Arc<Mutex<Option<MultiplexedConnection>>>,
 }
 
+#[derive(Clone)]
 pub struct CacheStore {
-    client: Option<Client>,
-    connection: ArcConn,
+    pub client: Option<Client>,
+    pub connection: ArcConn,
 }
 
 impl Default for CacheStore {

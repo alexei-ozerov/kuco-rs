@@ -4,3 +4,4 @@ pub mod draw;
 pub mod event;
 pub mod tracing;
 pub mod view;
+pub mod sync;
