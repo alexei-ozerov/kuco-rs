@@ -9,4 +9,11 @@ edition.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 uuid = { workspace = true }
-sqlx = { workspace = true, features = ["sqlite", "regexp"] }
+sqlx = { version = "0.7", features = ["sqlite", "regexp", "macros", "runtime-tokio-native-tls", "json", "macros" ] }
+tokio = { workspace = true }
+serde = { version = "1.0", features = ["derive"], optional = true }
+serde_json = { version = "1.0", optional = true }
+
+[features]
+default = []
+serde_support = ["serde", "serde_json"]

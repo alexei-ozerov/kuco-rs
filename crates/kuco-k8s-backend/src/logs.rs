@@ -1,11 +1,7 @@
 use k8s_openapi::api::core::v1::Pod;
 
 use kube::api::LogParams;
-use kube::{
-    Client,
-    api::Api,
-};
-
+use kube::{Client, api::Api};
 
 use crate::error::KucoBackendError;
 

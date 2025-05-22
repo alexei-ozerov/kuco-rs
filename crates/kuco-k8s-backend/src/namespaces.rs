@@ -6,7 +6,6 @@ use kube::{
     api::{Api, ListParams},
 };
 
-
 #[derive(Clone, Debug)]
 pub struct NamespaceData {
     pub names: Vec<String>,
