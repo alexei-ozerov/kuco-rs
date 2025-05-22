@@ -1,15 +1,14 @@
 use kuco::app::Kuco;
-use kuco::sync::kube_to_valkey_cache_sync;
+use kuco::sync::periodic_kubernetes_to_cache_sync;
 use kuco::tracing::init_tracing;
 
-use kuco_cache::CacheStore;
 use kuco_k8s_backend::context::KubeContext;
+use kuco_sqlite_backend::cache::SqlxCacheStore;
 
-// TODO: Implement a Redis Cache for storing data from K8s
-// TODO: Use Sqlite for storing persistent data
+use color_eyre::eyre::{Result, WrapErr};
 
 #[tokio::main]
-async fn main() -> color_eyre::Result<()> {
+async fn main() -> Result<()> {
     // Init Tracing
     color_eyre::install()?;
     let _guard = init_tracing()?;
@@ -22,28 +21,22 @@ async fn main() -> color_eyre::Result<()> {
     })?;
     tracing::info!("Kubernetes context initialized.");
 
-    // Init Valkey Client & Connection
-    let mut cache_store = CacheStore::new();
-    cache_store.create_client().map_err(|e| {
-        tracing::error!("Failed to create Valkey client: {}", e);
-        e
-    })?;
-    cache_store.open_connection().await.map_err(|e| {
-        tracing::error!("Failed to open Valkey connection: {}", e);
-        e
-    })?;
-    tracing::info!("CacheStore initialized and connection opened.");
+    // Init Sqlite in-memory cache
+    let sqlite_cache = SqlxCacheStore::new_in_memory()
+        .await
+        .wrap_err("SQLx cache init failed")?;
+    tracing::info!("In-memory SQLx cache initialized.");
 
-    // Clone Arc (for running sync tasks on another thread)
+    // Clone contexts to send to secondary thread
     let kube_context_for_task = kube_context.clone();
-    let cache_store_for_task = cache_store.clone();
+    let sqlite_cache_for_task = sqlite_cache.clone();
 
-    // Spawn second thread
-    tokio::spawn(kube_to_valkey_cache_sync(
+    // Secondary thread for syncing kube data to cache
+    tokio::spawn(periodic_kubernetes_to_cache_sync(
         kube_context_for_task,
-        cache_store_for_task,
+        sqlite_cache_for_task,
     ));
-    tracing::info!("K8s data sync task spawned.");
+    tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
 
     // Run TUI
     let terminal = ratatui::init();

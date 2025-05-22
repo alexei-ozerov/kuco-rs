@@ -1,13 +1,11 @@
-pub mod error;
+pub mod containers;
 pub mod context;
+pub mod error;
+pub mod logs;
 pub mod namespaces;
 pub mod pods;
-pub mod containers;
-pub mod logs;
-
 
 use kube::Client;
-
 
 use crate::error::KucoBackendError;
 
@@ -17,4 +15,3 @@ async fn get_client() -> Result<Client, KucoBackendError> {
 
     Ok(client)
 }
-
