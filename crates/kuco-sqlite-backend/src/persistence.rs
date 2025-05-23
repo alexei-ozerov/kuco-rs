@@ -3,12 +3,13 @@ use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePo
 use std::fs;
 use std::{path::Path, str::FromStr, time::Duration};
 
+/// A persistent data store using SQLite with sqlx.
 #[derive(Debug, Clone)]
-pub struct SqliteStore {
+pub struct SqliteDb {
     pool: SqlitePool,
 }
 
-impl SqliteStore {
+impl SqliteDb {
     pub async fn new(path: impl AsRef<Path>, timeout: f64) -> Result<Self> {
         let path = path.as_ref();
 
@@ -28,12 +29,10 @@ impl SqliteStore {
             .connect_with(opts)
             .await?;
 
-        Self::setup_db(&pool).await?;
-
         Ok(Self { pool })
     }
 
-    async fn setup_db(pool: &SqlitePool) -> Result<()> {
+    async fn setup_db(&self) -> Result<()> {
         // sqlx::migrate!("./record-migrations").run(pool).await?;
 
         Ok(())

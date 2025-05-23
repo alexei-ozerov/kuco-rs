@@ -1,3 +1,5 @@
+use crate::interface::SqlxStore;
+
 use color_eyre::eyre::{Result, WrapErr};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
 use std::str::FromStr;
@@ -7,13 +9,11 @@ use serde::{Serialize, de::DeserializeOwned};
 
 /// An in-memory cache store using SQLite with sqlx.
 #[derive(Clone)]
-pub struct SqlxCacheStore {
+pub struct SqliteCache {
     pool: SqlitePool,
 }
 
-impl SqlxCacheStore {
-    /// Creates a new in-memory SQLite cache using sqlx.
-    /// Initializes the necessary schema.
+impl SqliteCache {
     pub async fn new_in_memory() -> Result<Self> {
         let connect_options = SqliteConnectOptions::from_str("sqlite::memory:")
             .wrap_err("Failed to parse in-memory SQLite connection string")?
@@ -31,7 +31,6 @@ impl SqlxCacheStore {
         Ok(store)
     }
 
-    /// Initializes the cache table schema.
     async fn init_schema(&self) -> Result<()> {
         sqlx::query(
             "CREATE TABLE IF NOT EXISTS kv_cache (
@@ -47,8 +46,19 @@ impl SqlxCacheStore {
         Ok(())
     }
 
+    pub async fn dump_to_file(&self, file_path: &str) -> Result<()> {
+        sqlx::query("BACKUP TO ?")
+            .bind(file_path)
+            .execute(&self.pool)
+            .await
+            .map(|_| ())
+            .wrap_err_with(|| format!("Failed to backup SQLite cache to file: {}", file_path))
+    }
+}
+
+impl SqlxStore for SqliteCache {
     /// Sets a key with a byte value. The value should be pre-serialized.
-    pub async fn set_bytes(&self, key: String, value: Vec<u8>) -> Result<()> {
+    async fn set_bytes(&self, key: String, value: Vec<u8>) -> Result<()> {
         sqlx::query(
             "REPLACE INTO kv_cache (key, value, cached_at) VALUES (?, ?, strftime('%s', 'now'))",
         )
@@ -61,7 +71,7 @@ impl SqlxCacheStore {
     }
 
     /// Gets a byte value for a key. Deserialization is the caller's responsibility.
-    pub async fn get_bytes(&self, key: String) -> Result<Option<Vec<u8>>> {
+    async fn get_bytes(&self, key: String) -> Result<Option<Vec<u8>>> {
         let row_option: Option<(Vec<u8>,)> =
             sqlx::query_as("SELECT value FROM kv_cache WHERE key = ?")
                 .bind(key.as_str())
@@ -72,10 +82,8 @@ impl SqlxCacheStore {
         Ok(row_option.map(|(value,)| value))
     }
 
-    /// (Optional, if 'serde_support' feature is enabled)
-    /// Sets a key with a serde-serializable value (serialized to JSON bytes).
     #[cfg(feature = "serde_support")]
-    pub async fn set_json<S: Serialize + Send + Sync + 'static>(
+    async fn set_json<S: Serialize + Send + Sync + 'static>(
         &self,
         key: String,
         value: &S,
@@ -85,10 +93,8 @@ impl SqlxCacheStore {
         self.set_bytes(key, json_bytes).await
     }
 
-    /// (Optional, if 'serde_support' feature is enabled)
-    /// Gets a value for a key and deserializes it from JSON bytes.
     #[cfg(feature = "serde_support")]
-    pub async fn get_json<D: DeserializeOwned + Send + Sync + 'static>(
+    async fn get_json<D: DeserializeOwned + Send + Sync + 'static>(
         &self,
         key: String,
     ) -> Result<Option<D>> {
@@ -103,8 +109,7 @@ impl SqlxCacheStore {
         }
     }
 
-    /// Clears all entries from the cache.
-    pub async fn clear_all(&self) -> Result<()> {
+    async fn clear_all(&self) -> Result<()> {
         sqlx::query("DELETE FROM kv_cache")
             .execute(&self.pool)
             .await

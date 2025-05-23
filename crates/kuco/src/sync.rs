@@ -1,5 +1,6 @@
 use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
-use kuco_sqlite_backend::cache::SqlxCacheStore;
+use kuco_sqlite_backend::cache::SqliteCache;
+use kuco_sqlite_backend::interface::SqlxStore;
 
 use chrono::Utc;
 use std::time::Duration;
@@ -7,7 +8,7 @@ use tokio::time::interval;
 
 pub async fn periodic_kubernetes_to_cache_sync(
     kube_ctx_clone: KubeContext,
-    cache_store: SqlxCacheStore,
+    cache_store: SqliteCache,
 ) {
     let kube_client = kube_ctx_clone
         .client

@@ -3,7 +3,7 @@ use kuco::sync::periodic_kubernetes_to_cache_sync;
 use kuco::tracing::init_tracing;
 
 use kuco_k8s_backend::context::KubeContext;
-use kuco_sqlite_backend::cache::SqlxCacheStore;
+use kuco_sqlite_backend::cache::SqliteCache;
 
 use color_eyre::eyre::{Result, WrapErr};
 
@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
     tracing::info!("Kubernetes context initialized.");
 
     // Init Sqlite in-memory cache
-    let sqlite_cache = SqlxCacheStore::new_in_memory()
+    let sqlite_cache = SqliteCache::new_in_memory()
         .await
         .wrap_err("SQLx cache init failed")?;
     tracing::info!("In-memory SQLx cache initialized.");
