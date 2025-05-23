@@ -3,15 +3,37 @@ use kuco::sync::periodic_kubernetes_to_cache_sync;
 use kuco::tracing::init_tracing;
 
 use kuco_k8s_backend::context::KubeContext;
-use kuco_sqlite_backend::cache::SqliteCache;
+use kuco_sqlite_backend::{SqliteCache, SqliteDb};
 
-use color_eyre::eyre::{Result, WrapErr};
+use color_eyre::eyre::{Result, WrapErr, eyre};
+use std::path::PathBuf;
+
+fn get_user_home() -> Option<PathBuf> {
+    dirs_next::home_dir()
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
     // Init Tracing
     color_eyre::install()?;
     let _guard = init_tracing()?;
+
+    // Setup Data Persistence Arguments
+    let db_connection_timeout: f64 = 30.0;
+    let db_path: PathBuf = match get_user_home() {
+        Some(home_path) => {
+            let path = home_path.join(".kuco").join("user_kube_data.db");
+            tracing::info!("Database path will be: {}", home_path.display());
+
+            path
+        }
+        None => {
+            let error_message = "Critical Error: Could not determine the home directory. Application cannot continue.";
+            tracing::error!("{}", error_message);
+
+            return Err(eyre!(error_message));
+        }
+    };
 
     // Create KubeContext
     let mut kube_context = KubeContext::default();
@@ -24,17 +46,25 @@ async fn main() -> Result<()> {
     // Init Sqlite in-memory cache
     let sqlite_cache = SqliteCache::new_in_memory()
         .await
-        .wrap_err("SQLx cache init failed")?;
-    tracing::info!("In-memory SQLx cache initialized.");
+        .wrap_err("Sqlite cache init failed")?;
+    tracing::info!("In-memory Sqlite cache initialized.");
+
+    // Init Sqlite persistent storage
+    let sqlite_db = SqliteDb::new(&db_path, db_connection_timeout)
+        .await
+        .wrap_err("Sqlite cache init failed")?;
+    tracing::info!("Persistent Sqlite DB initialized.");
 
     // Clone contexts to send to secondary thread
     let kube_context_for_task = kube_context.clone();
     let sqlite_cache_for_task = sqlite_cache.clone();
+    let sqlite_db_for_task = sqlite_db.clone();
 
     // Secondary thread for syncing kube data to cache
     tokio::spawn(periodic_kubernetes_to_cache_sync(
         kube_context_for_task,
-        sqlite_cache_for_task,
+        // sqlite_cache_for_task,
+        sqlite_db_for_task,
     ));
     tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
 

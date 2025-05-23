@@ -1,15 +1,15 @@
 use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
-use kuco_sqlite_backend::cache::SqliteCache;
-use kuco_sqlite_backend::interface::SqlxStore;
+use kuco_sqlite_backend::KucoSqliteStore;
 
 use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
 
-pub async fn periodic_kubernetes_to_cache_sync(
+pub async fn periodic_kubernetes_to_cache_sync<'a, S: KucoSqliteStore + Clone + 'static>(
     kube_ctx_clone: KubeContext,
-    cache_store: SqliteCache,
+    cache_store: S,
 ) {
+    let cache_table = "kv_cache".to_string();
     let kube_client = kube_ctx_clone
         .client
         .as_ref()
@@ -24,13 +24,19 @@ pub async fn periodic_kubernetes_to_cache_sync(
         let mut ns_data_fetcher = NamespaceData::new();
         ns_data_fetcher.update(kube_client.clone()).await;
 
+        // Write Namespace List
         if let Err(e) = cache_store
-            .set_json("k8s:all_namespaces".to_string(), &ns_data_fetcher.names)
+            .set_json(
+                cache_table.clone(),
+                "all_namespaces".to_string(),
+                &ns_data_fetcher.names,
+            )
             .await
         {
             tracing::error!("Failed to cache namespace names (sqlx): {}", e);
         }
 
+        // Write Pod Info
         for ns_name in &ns_data_fetcher.names {
             let mut pod_data_fetcher = PodData::default();
             if let Err(e) = pod_data_fetcher
@@ -45,8 +51,11 @@ pub async fn periodic_kubernetes_to_cache_sync(
                 continue;
             }
             for pod_info in &pod_data_fetcher.list {
-                let pod_key = format!("k8s:ns:{}:pod:{}", ns_name, pod_info.name);
-                if let Err(e) = cache_store.set_json(pod_key, pod_info).await {
+                let pod_key = format!("{}-{}", ns_name, pod_info.name);
+                if let Err(e) = cache_store
+                    .set_json(cache_table.clone(), pod_key, pod_info)
+                    .await
+                {
                     tracing::error!(
                         "Failed to cache pod info for {} (sqlx): {}",
                         pod_info.name,
@@ -57,9 +66,13 @@ pub async fn periodic_kubernetes_to_cache_sync(
         }
 
         let current_timestamp_seconds: i64 = Utc::now().timestamp();
-        let timestamp_key = "k8s:sync:last_refreshed_at".to_string();
+        let timestamp_key = "last_refreshed_at".to_string();
         if let Err(e) = cache_store
-            .set_json(timestamp_key, &current_timestamp_seconds)
+            .set_json(
+                cache_table.clone(),
+                timestamp_key,
+                &current_timestamp_seconds,
+            )
             .await
         {
             tracing::error!(

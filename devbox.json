@@ -8,7 +8,8 @@
     "docker@27.5.1",
     "kind@0.27.0",
     "kubectl@1.33.0",
-    "valkey@8.0.3"
+    "valkey@8.0.3",
+    "sqlite@3.48.0"
   ],
   "shell": {
     "init_hook": [

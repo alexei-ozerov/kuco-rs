@@ -1,11 +1,8 @@
-use crate::interface::SqlxStore;
-
 use color_eyre::eyre::{Result, WrapErr};
 use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePool, SqlitePoolOptions};
 use std::str::FromStr;
 
-#[cfg(feature = "serde_support")]
-use serde::{Serialize, de::DeserializeOwned};
+use crate::traits::KucoSqliteStore;
 
 /// An in-memory cache store using SQLite with sqlx.
 #[derive(Clone)]
@@ -36,7 +33,7 @@ impl SqliteCache {
             "CREATE TABLE IF NOT EXISTS kv_cache (
                 key TEXT PRIMARY KEY NOT NULL,
                 value BLOB NOT NULL,
-                cached_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
+                updated_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now'))
             )",
         )
         .execute(&self.pool)
@@ -54,66 +51,74 @@ impl SqliteCache {
             .map(|_| ())
             .wrap_err_with(|| format!("Failed to backup SQLite cache to file: {}", file_path))
     }
-}
 
-impl SqlxStore for SqliteCache {
-    /// Sets a key with a byte value. The value should be pre-serialized.
-    async fn set_bytes(&self, key: String, value: Vec<u8>) -> Result<()> {
-        sqlx::query(
-            "REPLACE INTO kv_cache (key, value, cached_at) VALUES (?, ?, strftime('%s', 'now'))",
-        )
-        .bind(key.as_str()) // Use as_str() if key is String for &str binding
-        .bind(value)
-        .execute(&self.pool)
-        .await
-        .wrap_err_with(|| format!("Failed to set key '{}' in SQLite cache", key))?;
+    async fn set_bytes(&self, table: String, key: String, value: Vec<u8>) -> Result<()> {
+        let query_string = format!(
+            "REPLACE INTO {} (key, value, updated_at) VALUES (?, ?, strftime('%s', 'now'))",
+            table.as_str()
+        );
+
+        sqlx::query(&query_string)
+            .bind(key.as_str())
+            .bind(value)
+            .execute(&self.pool)
+            .await
+            .map_err(|sqlx_err| {
+                tracing::error!(
+                    "SQLxError in set_bytes for key '{}': {}.",
+                    key,
+                    sqlx_err, // Print the Display form of the error
+                );
+                if let Some(db_err) = sqlx_err.as_database_error() {
+                    tracing::error!(
+                        "Underlying SQLite error - Code: {:?}, Message: {}",
+                        db_err.code().unwrap_or_default(),
+                        db_err.message()
+                    );
+                }
+                color_eyre::eyre::eyre!(
+                    "Failed to set key '{}' in SQLite cache. Cause: {}",
+                    key,
+                    sqlx_err
+                )
+            })?;
         Ok(())
     }
 
-    /// Gets a byte value for a key. Deserialization is the caller's responsibility.
-    async fn get_bytes(&self, key: String) -> Result<Option<Vec<u8>>> {
-        let row_option: Option<(Vec<u8>,)> =
-            sqlx::query_as("SELECT value FROM kv_cache WHERE key = ?")
-                .bind(key.as_str())
-                .fetch_optional(&self.pool)
-                .await
-                .wrap_err_with(|| format!("Failed to get key '{}' from SQLite cache", key))?;
+    // TODO: update error handling to be more detailed like in setter
+    async fn get_bytes(&self, table: String, key: String) -> Result<Option<Vec<u8>>> {
+        let query_string = format!("SELECT value FROM {} WHERE key = ?", table.as_str());
 
+        let row_option: Option<(Vec<u8>,)> = sqlx::query_as(&query_string)
+            .bind(key.as_str())
+            .fetch_optional(&self.pool)
+            .await
+            .wrap_err_with(|| format!("SqliteCache: Failed to get key '{}'", key))?;
         Ok(row_option.map(|(value,)| value))
     }
 
-    #[cfg(feature = "serde_support")]
-    async fn set_json<S: Serialize + Send + Sync + 'static>(
-        &self,
-        key: String,
-        value: &S,
-    ) -> Result<()> {
-        let json_bytes = serde_json::to_vec(value)
-            .wrap_err_with(|| format!("Failed to serialize value for key '{}' to JSON", key))?;
-        self.set_bytes(key, json_bytes).await
-    }
+    async fn erase_all_kv(&self, table: String) -> Result<()> {
+        let query_string = format!("DELETE FROM {}", table.as_str());
 
-    #[cfg(feature = "serde_support")]
-    async fn get_json<D: DeserializeOwned + Send + Sync + 'static>(
-        &self,
-        key: String,
-    ) -> Result<Option<D>> {
-        match self.get_bytes(key.clone()).await? {
-            Some(bytes) => {
-                let deserialized: D = serde_json::from_slice(&bytes).wrap_err_with(|| {
-                    format!("Failed to deserialize JSON value for key '{}'", key)
-                })?;
-                Ok(Some(deserialized))
-            }
-            None => Ok(None),
-        }
-    }
-
-    async fn clear_all(&self) -> Result<()> {
-        sqlx::query("DELETE FROM kv_cache")
+        sqlx::query(&query_string)
             .execute(&self.pool)
             .await
-            .wrap_err("Failed to clear SQLite cache")?;
+            .wrap_err("SqliteCache: Failed to clear kv_cache table")?;
         Ok(())
+    }
+}
+
+#[async_trait::async_trait]
+impl KucoSqliteStore for SqliteCache {
+    async fn set_bytes(&self, table: String, key: String, value: Vec<u8>) -> Result<()> {
+        self.set_bytes(table, key, value).await
+    }
+
+    async fn get_bytes(&self, table: String, key: String) -> Result<Option<Vec<u8>>> {
+        self.get_bytes(table, key).await
+    }
+
+    async fn clear_all_kv(&self, table: String) -> Result<()> {
+        self.erase_all_kv(table).await
     }
 }
