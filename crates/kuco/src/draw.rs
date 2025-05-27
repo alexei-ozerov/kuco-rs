@@ -157,7 +157,7 @@ impl Kuco {
             .fg(Color::LightCyan)
             .add_modifier(Modifier::ITALIC);
 
-        let refresh_content = if self.view.data.last_refreshed_at == *"00:00:00" {
+        let refresh_content = if self.view.data.last_refreshed_at == *"19:00:00" {
             Paragraph::new(Text::from(Span::styled(
                 "loading cache ...".to_string(),
                 refresh_style,

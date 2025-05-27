@@ -2,7 +2,7 @@
  * Convert data from the k8s backend to structures consumed by the TUI.
  */
 
-use chrono::{DateTime, NaiveDateTime, Utc};
+use chrono::{DateTime, Local};
 use color_eyre::{Result, eyre::WrapErr};
 use ratatui::widgets::ListState;
 use std::sync::Arc;
@@ -132,9 +132,9 @@ impl KubeData {
             .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
             .unwrap_or_default();
 
-        let naive = NaiveDateTime::from_timestamp(fetched_timestamp_seconds, 0);
-        let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
-        let newdate = datetime.format("%H:%M:%S");
+        let utc_timestamp = DateTime::from_timestamp(fetched_timestamp_seconds, 0).unwrap();
+        let converted: DateTime<Local> = DateTime::from(utc_timestamp);
+        let newdate = converted.format("%H:%M:%S");
 
         self.last_refreshed_at = newdate.to_string();
 

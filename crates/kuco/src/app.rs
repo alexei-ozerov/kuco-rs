@@ -86,7 +86,7 @@ impl Kuco {
                         self.view.update_widget_kube_data().await;
                     };
 
-                    if self.view.data.last_refreshed_at == *"00:00:00" {
+                    if self.view.data.last_refreshed_at == *"19:00:00" {
                         self.view.update_widget_kube_data().await;
                     };
 
