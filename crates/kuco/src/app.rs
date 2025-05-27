@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use kuco_sqlite_backend::{SqliteCache, SqliteDb};
 use nucleo_matcher::{
     Config, Matcher,
     pattern::{CaseMatching, Normalization, Pattern},
@@ -11,8 +14,24 @@ use crate::data::{KubeComponentState, KubeWidgetState};
 use crate::event::{AppEvent, Event, EventHandler};
 use crate::view::KubeWidget;
 
+#[derive(Debug)]
+pub struct SqlitePoolCtx {
+    pub cache: Arc<SqliteCache>, // KubeData in-memory cache.
+    pub db: Arc<SqliteDb>, // TODO: Implement the persistence mechanisms at a later date.
+}
+
+impl SqlitePoolCtx {
+    fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: SqliteDb) -> Self {
+        Self {
+            cache: sqlite_cache,
+            db: Arc::new(sqlite_db),
+        }
+    }
+}
+
 /// Application.
 pub struct Kuco {
+    pub arc_ctx: SqlitePoolCtx,
     pub running: bool,
     pub events: EventHandler,
     pub view: KubeWidget,
@@ -40,11 +59,12 @@ pub enum InteractionMode {
 }
 
 impl Kuco {
-    pub async fn new() -> Self {
+    pub async fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: SqliteDb) -> Self {
         Self {
+            arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db).into(),
             running: true,
             events: EventHandler::new(),
-            view: KubeWidget::new().await,
+            view: KubeWidget::new(sqlite_cache.clone()).await,
             cache: None,
         }
     }
@@ -112,7 +132,11 @@ impl Kuco {
                     // TODO: Implement a process that runs on another thread in a non-blocking
                     // fashion and continually updates the sqlite database with cluster
                     // information, and retool this event to pull data from the database ...
-                    AppEvent::Refresh => self.view.update_widget_kube_data().await,
+                    AppEvent::Refresh => {
+                        self.view.update_widget_kube_data().await;
+                        self.view.data.update_namespaces_names_list().await;
+                        self.view.data.get_namespaces();
+                    }
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
@@ -141,7 +165,7 @@ impl Kuco {
                             self.view.view_mode = ViewMode::PODS;
                             self.view.update_widget_kube_data().await;
 
-                            self.view.data.current_container = None;
+                            self.view.data.current_container_name = None;
                             mode_state.list_state.select(Some(0));
                         }
                         ViewMode::LOGS => {
@@ -320,7 +344,7 @@ impl Kuco {
             co = &co_list[co_index.unwrap()];
         }
 
-        self.view.data.current_container = Some(co.clone());
+        self.view.data.current_container_name = Some(co.clone());
     }
 
     pub fn refresh_pods_selection(&mut self, component_state: &KubeComponentState) {
@@ -345,7 +369,7 @@ impl Kuco {
         }
 
         // Select Namespace
-        self.view.data.current_namespace = Some(ns.clone());
+        self.view.data.current_namespace_name = Some(ns.clone());
     }
 
     pub async fn transition_ns_to_pod_view(&mut self, component_state: &KubeComponentState) {
@@ -357,7 +381,7 @@ impl Kuco {
         self.view.update_widget_kube_data().await; // Update View
 
         tracing::debug!("--- Refresh Event Start ---");
-        tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace);
+        tracing::debug!("Pods List: {:#?}", self.view.data.current_namespace_name);
         tracing::debug!("Pods List: {:#?}", self.view.data.pods.names);
         tracing::debug!("Pods Data: {:#?}", self.view.data.pods);
         tracing::debug!("--- Refresh Event End ---");

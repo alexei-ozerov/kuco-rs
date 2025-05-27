@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use kuco_sqlite_backend::SqliteCache;
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
@@ -17,12 +20,12 @@ pub struct KubeWidget {
 }
 
 impl KubeWidget {
-    pub async fn new() -> Self {
+    pub async fn new(arc_ctx: Arc<SqliteCache>) -> Self {
         KubeWidget {
             display: None,
             view_mode: ViewMode::NS,
             interact_mode: InteractionMode::NORMAL,
-            data: KubeData::new().await,
+            data: KubeData::new(arc_ctx).await,
         }
     }
 

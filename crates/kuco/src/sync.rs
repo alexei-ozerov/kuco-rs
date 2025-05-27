@@ -5,7 +5,7 @@ use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
 
-pub async fn periodic_kubernetes_to_cache_sync<'a, S: KucoSqliteStore + Clone + 'static>(
+pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'static>(
     kube_ctx_clone: KubeContext,
     cache_store: S,
 ) {

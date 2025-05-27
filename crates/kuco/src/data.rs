@@ -2,7 +2,9 @@
  * Convert data from the k8s backend to structures consumed by the TUI.
  */
 
+use color_eyre::Result;
 use ratatui::widgets::ListState;
+use std::sync::Arc;
 
 use kuco_k8s_backend::{
     containers::ContainerData,
@@ -11,13 +13,19 @@ use kuco_k8s_backend::{
     namespaces::NamespaceData,
     pods::{PodData, PodInfo},
 };
+use kuco_sqlite_backend::{KucoSqliteStore, SqliteCache};
+use serde::Deserialize;
+
+#[derive(Deserialize)]
+pub struct NamespaceList {
+    namespaces: Vec<String>,
+}
 
 /*
  * Create a generic Kube Component State Structure.
  */
 
-// TODO: Move this to a more appropriate location.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Search {
     pub input: String,
 }
@@ -31,9 +39,7 @@ pub struct KubeComponentState {
 impl KubeComponentState {
     fn new() -> Self {
         KubeComponentState {
-            search: Search {
-                input: "".to_string(),
-            },
+            search: Search::default(),
             list_state: ListState::default(),
         }
     }
@@ -45,16 +51,21 @@ impl KubeComponentState {
 
 #[derive(Clone)]
 pub struct KubeData {
+    arc_ctx: Arc<SqliteCache>,
     context: KubeContext,
 
     // Markers for current selection.
-    pub current_namespace: Option<String>,
+    pub current_namespace_name: Option<String>,
     pub current_pod_name: Option<String>,
+    pub current_container_name: Option<String>,
     pub current_log_line: Option<String>,
-    pub current_container: Option<String>,
 
     pub current_pod_info: PodInfo,
 
+    // TODO: Refactor old components into new ones from cache
+    pub namespace_name_list: Vec<String>,
+
+    // TODO: Refactor old struct members
     pub namespaces: NamespaceData,
     pub pods: PodData,
     pub containers: ContainerData,
@@ -66,27 +77,30 @@ pub struct KubeData {
 //       The calls to K8s should happen continually on another thread
 //       and write to the sqlite database.
 impl KubeData {
-    pub async fn new() -> Self {
+    pub async fn new(arc_ctx: Arc<SqliteCache>) -> Self {
         KubeData {
+            arc_ctx,
             context: KubeContext::default(),
             namespaces: NamespaceData::new(),
-            current_namespace: None,
+            current_namespace_name: None,
             current_log_line: None,
             pods: PodData::default(),
             current_pod_info: PodInfo::default(),
             current_pod_name: None,
             containers: ContainerData::new(),
-            current_container: None,
+            current_container_name: None,
             logs: LogData::new(),
+            namespace_name_list: Vec::new(),
         }
     }
 
     pub fn get_namespaces(&mut self) -> Vec<String> {
-        let mut ref_ns_vec = Vec::<String>::new();
-
-        self.namespaces.names.iter().for_each(|ns| {
-            ref_ns_vec.push(ns.to_string());
-        });
+        let ref_ns_vec = self
+            .namespaces
+            .names
+            .iter()
+            .map(|ns| ns.to_string())
+            .collect();
 
         ref_ns_vec
     }
@@ -116,6 +130,28 @@ impl KubeData {
         }
     }
 
+    // TODO: fix this please
+    pub async fn new_update_namespaces_names_list(&mut self) -> Result<()> {
+        let sqlite_cache_arc = &self.arc_ctx.clone();
+        let sqlite_cache = sqlite_cache_arc.as_ref();
+
+        let table_name = "kv_cache".to_owned();
+        let key_name = "all_namespaces".to_owned();
+
+        let json_bytes: NamespaceList = sqlite_cache
+            .get_json(table_name, key_name)
+            .await?
+            .unwrap_or({
+                NamespaceList {
+                    namespaces: Vec::new(),
+                }
+            });
+
+        self.namespace_name_list = json_bytes.namespaces;
+
+        Ok(())
+    }
+
     pub async fn update_namespaces_names_list(&mut self) {
         self.namespaces
             .update(
@@ -129,7 +165,7 @@ impl KubeData {
 
     // Update PodData object and Pods List Vector
     pub async fn update_pods(&mut self) {
-        let ns: String = match &self.current_namespace {
+        let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
         };
@@ -149,14 +185,14 @@ impl KubeData {
     }
 
     pub async fn update_logs_lines_list(&mut self) {
-        let ns: String = match &self.current_namespace {
+        let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
         };
 
         match &self.current_pod_name {
             Some(po) => {
-                match &self.current_container {
+                match &self.current_container_name {
                     Some(co) => {
                         let _ = self
                             .logs
@@ -189,7 +225,7 @@ impl KubeData {
     }
 
     pub async fn update_containers_names_list(&mut self) {
-        let ns: String = match &self.current_namespace {
+        let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
         };
@@ -219,7 +255,7 @@ impl KubeData {
     }
 
     pub async fn update_pods_names_list(&mut self) {
-        let ns: String = match &self.current_namespace {
+        let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
         };

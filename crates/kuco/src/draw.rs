@@ -90,7 +90,7 @@ impl Kuco {
             "[ NAMESPACE ] {}
 [ POD ]       {}
 [ CONTAINER ] {}",
-            self.view.data.current_namespace.clone().unwrap(),
+            self.view.data.current_namespace_name.clone().unwrap(),
             self.view
                 .data
                 .current_pod_name
@@ -98,7 +98,7 @@ impl Kuco {
                 .unwrap_or("-".to_string()),
             self.view
                 .data
-                .current_container
+                .current_container_name
                 .clone()
                 .unwrap_or("-".to_string()),
         );
