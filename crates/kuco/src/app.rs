@@ -17,7 +17,7 @@ use crate::view::KubeWidget;
 #[derive(Debug)]
 pub struct SqlitePoolCtx {
     pub cache: Arc<SqliteCache>, // KubeData in-memory cache.
-    pub db: Arc<SqliteDb>, // TODO: Implement the persistence mechanisms at a later date.
+    pub db: Arc<SqliteDb>,       // TODO: Implement the persistence mechanisms at a later date.
 }
 
 impl SqlitePoolCtx {
@@ -81,6 +81,11 @@ impl Kuco {
             let mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
+                    // Make sure NS is loaded from cache
+                    if self.view.data.namespace_name_list.len() == 0 {
+                        self.view.update_widget_kube_data().await;
+                    };
+
                     if kube_state.namespace_state.list_state.selected().is_none() {
                         kube_state.namespace_state.list_state.select_first();
                     }

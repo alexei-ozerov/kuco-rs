@@ -33,7 +33,7 @@ impl KubeWidget {
         self.data.update_context().await;
         match self.view_mode {
             ViewMode::NS => {
-                self.data.update_namespaces_names_list().await;
+                let _ = self.data.update_namespaces_names_list().await;
                 self.display = Some(self.data.get_namespaces())
             }
             ViewMode::PODS => {
