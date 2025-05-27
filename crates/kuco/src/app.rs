@@ -86,6 +86,10 @@ impl Kuco {
                         self.view.update_widget_kube_data().await;
                     };
 
+                    if self.view.data.last_refreshed_at == "00:00:00".to_owned() {
+                        self.view.update_widget_kube_data().await;
+                    };
+
                     if kube_state.namespace_state.list_state.selected().is_none() {
                         kube_state.namespace_state.list_state.select_first();
                     }
@@ -253,7 +257,7 @@ impl Kuco {
 
                     // Navigation
                     KeyCode::Right | KeyCode::Enter => {
-                        self.events.send(AppEvent::NavRight);
+                        // self.events.send(AppEvent::NavRight); // Disable auto-selection
                         self.view.interact_mode = InteractionMode::NORMAL;
                     }
                     KeyCode::Left => self.events.send(AppEvent::NavLeft),

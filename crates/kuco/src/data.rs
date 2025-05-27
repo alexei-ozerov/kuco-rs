@@ -2,6 +2,7 @@
  * Convert data from the k8s backend to structures consumed by the TUI.
  */
 
+use chrono::{DateTime, NaiveDateTime, Utc};
 use color_eyre::{Result, eyre::WrapErr};
 use ratatui::widgets::ListState;
 use std::sync::Arc;
@@ -50,6 +51,9 @@ pub struct KubeData {
     arc_ctx: Arc<SqliteCache>,
     context: KubeContext,
 
+    // Refresh Timestamp
+    pub last_refreshed_at: String,
+
     // Markers for current selection.
     pub current_namespace_name: Option<String>,
     pub current_pod_name: Option<String>,
@@ -78,6 +82,7 @@ impl KubeData {
         KubeData {
             arc_ctx,
             context: KubeContext::default(),
+            last_refreshed_at: "..syncing..".to_owned(),
             namespaces: NamespaceData::new(),
             current_namespace_name: None,
             current_log_line: None,
@@ -113,6 +118,27 @@ impl KubeData {
         self.update_context().await;
         let _ = self.update_namespaces_names_list().await;
         let _ = self.update_pods_names_list().await;
+        let _ = self.get_timestamp().await;
+    }
+
+    pub async fn get_timestamp(&mut self) -> Result<()> {
+        let store = &self.arc_ctx;
+
+        let key_name = "last_refreshed_at".to_string();
+
+        let fetched_timestamp_seconds: i64 = store
+            .get_json::<i64>(KUCO_CACHE_TABLE.to_owned(), key_name.clone())
+            .await
+            .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
+            .unwrap_or_default();
+
+        let naive = NaiveDateTime::from_timestamp(fetched_timestamp_seconds, 0);
+        let datetime: DateTime<Utc> = DateTime::from_utc(naive, Utc);
+        let newdate = datetime.format("%H:%M:%S");
+
+        self.last_refreshed_at = newdate.to_string();
+
+        Ok(())
     }
 
     pub async fn update_context(&mut self) {

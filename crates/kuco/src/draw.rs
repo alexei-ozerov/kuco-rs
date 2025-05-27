@@ -2,7 +2,7 @@ use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
-    text::{Span, Text},
+    text::{Line, Span, Text},
     widgets::{Block, Paragraph},
 };
 
@@ -36,17 +36,6 @@ impl Kuco {
 
         // Input (Bottom) Layout
         let bot_chunk = chunks[3];
-
-        // Define Header / Title
-        let heading_style = Style::new()
-            .fg(Color::Black)
-            .bg(Color::White)
-            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
-        let title = Paragraph::new(Text::from(Span::styled(
-            format!("KuCo v{}", KUCO_VERSION),
-            heading_style,
-        )))
-        .alignment(Alignment::Left);
 
         // Interaction Mode Display
         let mode: &str;
@@ -142,7 +131,51 @@ impl Kuco {
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
         // Render Title
-        f.render_widget(&title, chunks[0]);
+        let title_chunk = chunks[0];
+        let title_inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(title_chunk);
+        let title_block = title_inner_chunks[0];
+        let refresh_block = title_inner_chunks[1];
+
+        // Define Header / Title
+        let heading_style = Style::new()
+            .fg(Color::Black)
+            .bg(Color::White)
+            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
+        let title = Paragraph::new(Text::from(Span::styled(
+            format!("KuCo v{}", KUCO_VERSION),
+            heading_style,
+        )))
+        .alignment(Alignment::Left);
+        f.render_widget(&title, title_block);
+
+        // Define Refresh Header
+        let refresh_style = Style::new().fg(Color::Gray).add_modifier(Modifier::ITALIC);
+        let help_style = Style::new()
+            .fg(Color::LightCyan)
+            .add_modifier(Modifier::ITALIC);
+
+        let refresh_content = if self.view.data.last_refreshed_at == "00:00:00".to_owned() {
+            Paragraph::new(Text::from(Span::styled(
+                format!("loading cache ..."),
+                refresh_style,
+            )))
+            .alignment(Alignment::Right)
+        } else {
+            let text = vec![
+                Line::styled(
+                    format!("last refreshed at {:#}", self.view.data.last_refreshed_at),
+                    refresh_style,
+                ),
+                Line::styled(format!("press 'r' to refresh"), help_style),
+            ];
+
+            Paragraph::new(Text::from(text)).alignment(Alignment::Right)
+        };
+
+        f.render_widget(&refresh_content, refresh_block);
 
         // Render List
         f.render_stateful_widget(

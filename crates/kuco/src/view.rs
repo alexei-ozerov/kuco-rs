@@ -31,6 +31,7 @@ impl KubeWidget {
 
     pub async fn update_widget_kube_data(&mut self) {
         self.data.update_context().await;
+        let _ = self.data.get_timestamp().await;
         match self.view_mode {
             ViewMode::NS => {
                 let _ = self.data.update_namespaces_names_list().await;
