@@ -31,6 +31,8 @@ impl KubeWidget {
 
     pub async fn update_widget_kube_data(&mut self) {
         self.data.update_context().await;
+
+        // Always pull a new timestamp when updating the widget :3
         let _ = self.data.get_timestamp().await;
         match self.view_mode {
             ViewMode::NS => {

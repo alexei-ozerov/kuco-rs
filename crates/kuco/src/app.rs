@@ -76,6 +76,15 @@ impl Kuco {
         self.view.update_widget_kube_data().await;
 
         while self.running {
+            // Since this will only happen for 5 seconds even when 19:00:00 is hit 
+            // I don't think this is the worst thing to happen to just trigger another
+            // reload ... I'm also not that good at this, so I could easily be wrong.
+            //
+            // TODO: Make this cleaner at some point
+            if self.view.data.last_refreshed_at == *"19:00:00" {
+                self.view.update_widget_kube_data().await;
+            };
+
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
             let mode_state: &mut KubeComponentState;
@@ -86,9 +95,6 @@ impl Kuco {
                         self.view.update_widget_kube_data().await;
                     };
 
-                    if self.view.data.last_refreshed_at == *"19:00:00" {
-                        self.view.update_widget_kube_data().await;
-                    };
 
                     if kube_state.namespace_state.list_state.selected().is_none() {
                         kube_state.namespace_state.list_state.select_first();
