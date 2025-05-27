@@ -21,10 +21,10 @@ pub struct SqlitePoolCtx {
 }
 
 impl SqlitePoolCtx {
-    fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: SqliteDb) -> Self {
+    fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
         Self {
             cache: sqlite_cache,
-            db: Arc::new(sqlite_db),
+            db: sqlite_db,
         }
     }
 }
@@ -59,7 +59,7 @@ pub enum InteractionMode {
 }
 
 impl Kuco {
-    pub async fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: SqliteDb) -> Self {
+    pub async fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
         Self {
             arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db),
             running: true,
@@ -139,8 +139,8 @@ impl Kuco {
                     // information, and retool this event to pull data from the database ...
                     AppEvent::Refresh => {
                         self.view.update_widget_kube_data().await;
-                        self.view.data.update_namespaces_names_list().await;
-                        self.view.data.get_namespaces();
+                        let _ = self.view.data.update_namespaces_names_list().await;
+                        let _ = self.view.data.get_namespaces();
                     }
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {

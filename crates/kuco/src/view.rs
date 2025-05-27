@@ -37,7 +37,7 @@ impl KubeWidget {
                 self.display = Some(self.data.get_namespaces())
             }
             ViewMode::PODS => {
-                self.data.update_pods_names_list().await;
+                let _ = self.data.update_pods_names_list().await;
                 self.display = Some(self.data.get_pods())
             }
             ViewMode::CONT => {

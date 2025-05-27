@@ -110,7 +110,7 @@ impl KubeData {
     pub async fn update_all(&mut self) {
         self.update_context().await;
         let _ = self.update_namespaces_names_list().await;
-        self.update_pods_names_list().await;
+        let _ = self.update_pods_names_list().await;
     }
 
     pub async fn update_context(&mut self) {
