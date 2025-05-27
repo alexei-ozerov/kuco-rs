@@ -1,4 +1,6 @@
-use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
+use kuco_k8s_backend::{
+    containers::ContainerData, context::KubeContext, namespaces::NamespaceData, pods::PodData,
+};
 use kuco_sqlite_backend::KucoSqliteStore;
 
 use chrono::Utc;
@@ -69,6 +71,40 @@ pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'sta
                     e
                 );
             }
+
+            // TODO: Find a way to implement this that is not absurdly slow.
+            // Get Containers Per Pod
+            // let mut container_data_fetcher = ContainerData::default();
+            // for po in pods_in_ns_vec {
+            //     match container_data_fetcher
+            //         .update(kube_client.clone(), &ns_name, &po)
+            //         .await
+            //     {
+            //         Ok(_) => {
+            //             tracing::debug!("Successfully fetched pod names for {}.", ns_name.clone())
+            //         }
+            //         Err(_) => {
+            //             tracing::error!("Failed to cache pod names for {}.", ns_name.clone())
+            //         }
+            //     };
+            //
+            //     let container_names_vec = container_data_fetcher.clone().names;
+            //     let cont_table_name = format!("co_{}_{}", ns_name.clone(), po);
+            //     if let Err(e) = cache_store
+            //         .set_json(
+            //             KUCO_CACHE_TABLE.to_owned().clone(),
+            //             cont_table_name,
+            //             &serde_json::json!(container_names_vec),
+            //         )
+            //             .await
+            //     {
+            //         tracing::error!(
+            //             "Failed to cache pod names for {} (sqlx): {}",
+            //             ns_name.clone(),
+            //             e
+            //         );
+            //     }
+            // }
         }
 
         // Write last update timestamp
