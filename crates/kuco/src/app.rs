@@ -52,7 +52,7 @@ pub enum ViewMode {
     LOGS,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InteractionMode {
     NORMAL,
     SEARCH,

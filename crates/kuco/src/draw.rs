@@ -63,7 +63,72 @@ impl Kuco {
         }
 
         // Input Display Configuration
-        let search_input_string = mode_state.search.input.as_str();
+        let mut search_input_string = mode_state.search.input.as_str();
+
+        // TODO: Make this more elegant later ...
+        let mut navigation = "".to_owned();
+        if self.view.interact_mode == InteractionMode::NORMAL {
+            navigation = match self.view.view_mode {
+                ViewMode::NS => self
+                    .view
+                    .data
+                    .current_namespace_name
+                    .clone()
+                    .unwrap_or("".to_owned()),
+                ViewMode::PODS => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {}", ns, po)
+                }
+                ViewMode::CONT => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let co = self
+                        .view
+                        .data
+                        .current_container_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {} > {}", ns, po, co)
+                }
+                ViewMode::LOGS => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {}", ns, po)
+                }
+            };
+            search_input_string = &navigation;
+        };
 
         let input = format!("[ {} ] {}", mode, search_input_string,);
         let input = Paragraph::new(input).style(Style::default().fg(col));
