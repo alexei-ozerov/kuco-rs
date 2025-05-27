@@ -1,3 +1,6 @@
+use std::sync::Arc;
+
+use kuco_sqlite_backend::SqliteCache;
 use ratatui::{
     buffer::Buffer,
     layout::{Alignment, Rect},
@@ -17,24 +20,27 @@ pub struct KubeWidget {
 }
 
 impl KubeWidget {
-    pub async fn new() -> Self {
+    pub async fn new(arc_ctx: Arc<SqliteCache>) -> Self {
         KubeWidget {
             display: None,
             view_mode: ViewMode::NS,
             interact_mode: InteractionMode::NORMAL,
-            data: KubeData::new().await,
+            data: KubeData::new(arc_ctx).await,
         }
     }
 
     pub async fn update_widget_kube_data(&mut self) {
         self.data.update_context().await;
+
+        // Always pull a new timestamp when updating the widget :3
+        let _ = self.data.get_timestamp().await;
         match self.view_mode {
             ViewMode::NS => {
-                self.data.update_namespaces_names_list().await;
+                let _ = self.data.update_namespaces_names_list().await;
                 self.display = Some(self.data.get_namespaces())
             }
             ViewMode::PODS => {
-                self.data.update_pods_names_list().await;
+                let _ = self.data.update_pods_names_list().await;
                 self.display = Some(self.data.get_pods())
             }
             ViewMode::CONT => {
@@ -61,8 +67,8 @@ impl StatefulWidget for KubeWidget {
         let mut display_list;
         if self.display.clone().unwrap().is_empty() {
             match self.view_mode {
-                ViewMode::NS => display_list = self.data.namespaces.names,
-                ViewMode::PODS => display_list = self.data.pods.names,
+                ViewMode::NS => display_list = self.data.namespace_names_list,
+                ViewMode::PODS => display_list = self.data.pod_names_list,
                 ViewMode::CONT => display_list = self.data.containers.names,
                 ViewMode::LOGS => display_list = self.data.logs.lines,
             }

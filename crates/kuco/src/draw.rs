@@ -3,10 +3,10 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span, Text},
-    widgets::{Block, BorderType, Borders, Paragraph},
+    widgets::{Block, Paragraph},
 };
 
-use crate::{app::*, data::KubeComponentState};
+use crate::{app::*, constants::KUCO_VERSION, data::KubeComponentState};
 
 impl Kuco {
     pub fn draw_view(&mut self, f: &mut Frame<'_>, mode_state: &mut KubeComponentState) {
@@ -18,21 +18,13 @@ impl Kuco {
             .constraints::<&[Constraint]>(
                 [
                     Constraint::Length(2), // header
-                    Constraint::Length(5), // navigation
+                    Constraint::Length(0), // navigation TODO: remove this
                     Constraint::Min(1),    // results list
                     Constraint::Length(3), // input
                 ]
                 .as_ref(),
             )
             .split(f.area());
-
-        let top_chunk = chunks[1];
-        let top_inner_chunks = Layout::default()
-            .direction(Direction::Horizontal)
-            .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
-            .split(top_chunk);
-        let top_inner_title = top_inner_chunks[0];
-        let top_inner_nav = top_inner_chunks[1];
 
         // Results (Middle) Layout
         let mid_chunk = chunks[2];
@@ -44,85 +36,6 @@ impl Kuco {
 
         // Input (Bottom) Layout
         let bot_chunk = chunks[3];
-
-        // Navigation
-        let _nav_row_1 = [" ", "S", "A", " "];
-        let _nav_row_2 = ["N", "P", "C", "L"];
-        let _nav_row_3 = [" ", "D", "D", " "];
-
-        let nav_line: Line = match self.view.view_mode {
-            ViewMode::NS => Line::from(vec![
-                Span::styled("N", Style::default().fg(Color::Black).bg(Color::White)),
-                Span::from(" P C L"),
-            ]),
-            ViewMode::PODS => Line::from(vec![
-                Span::from("N "),
-                Span::styled("P", Style::default().fg(Color::Black).bg(Color::White)),
-                Span::from(" C L"),
-            ]),
-            ViewMode::CONT => Line::from(vec![
-                Span::from("N P "),
-                Span::styled("C", Style::default().fg(Color::Black).bg(Color::White)),
-                Span::from(" L"),
-            ]),
-            ViewMode::LOGS => Line::from(vec![
-                Span::from("N P C "),
-                Span::styled("L", Style::default().fg(Color::Black).bg(Color::White)),
-            ]),
-        };
-
-        // TODO: So much wrong here ... this is just a mock-up.
-        let top_nav_line = Line::from(Span::from("  S A  "));
-        let bot_nav_line = Line::from(Span::from("  D D  "));
-        let nav_text: Vec<Line<'_>> = vec![top_nav_line, nav_line, bot_nav_line];
-        let nav = Paragraph::new(nav_text).alignment(Alignment::Center).block(
-            Block::new()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .style(Style::default().fg(Color::Magenta)),
-        );
-        f.render_widget(nav, top_inner_nav);
-
-        // Mock Up Inner Results Data Pane
-        // let data_block = Block::bordered().border_type(BorderType::Rounded);
-        // f.render_widget(data_block, results_inner_data);
-        let data_view_content = format!(
-            "[ NAMESPACE ] {}
-[ POD ]       {}
-[ CONTAINER ] {}",
-            self.view.data.current_namespace.clone().unwrap(),
-            self.view
-                .data
-                .current_pod_name
-                .clone()
-                .unwrap_or("-".to_string()),
-            self.view
-                .data
-                .current_container
-                .clone()
-                .unwrap_or("-".to_string()),
-        );
-        let data_view = Paragraph::new(data_view_content)
-            .style(Style::default())
-            .alignment(Alignment::Left);
-        let data_view_block = data_view.block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_type(BorderType::Rounded)
-                .style(Style::default().fg(Color::Magenta)),
-        );
-        f.render_widget(data_view_block, top_inner_title);
-
-        // Define Header / Title
-        let heading_style = Style::new()
-            .fg(Color::Black)
-            .bg(Color::White)
-            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
-        let title = Paragraph::new(Text::from(Span::styled(
-            "KuCo v0.1.0".to_string(),
-            heading_style,
-        )))
-        .alignment(Alignment::Left);
 
         // Interaction Mode Display
         let mode: &str;
@@ -139,7 +52,78 @@ impl Kuco {
         }
 
         // Input Display Configuration
-        let search_input_string = mode_state.search.input.as_str();
+        let mut search_input_string = mode_state.search.input.as_str();
+
+        // TODO: Make this more elegant later ...
+        let mut navigation = "".to_owned();
+        if self.view.interact_mode == InteractionMode::NORMAL {
+            navigation = match self.view.view_mode {
+                ViewMode::NS => self
+                    .view
+                    .data
+                    .current_namespace_name
+                    .clone()
+                    .unwrap_or("".to_owned()),
+                ViewMode::PODS => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {}", ns, po)
+                }
+                ViewMode::CONT => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let co = self
+                        .view
+                        .data
+                        .current_container_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {} > {}", ns, po, co)
+                }
+                ViewMode::LOGS => {
+                    let ns = self
+                        .view
+                        .data
+                        .current_namespace_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let po = self
+                        .view
+                        .data
+                        .current_pod_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    let co = self
+                        .view
+                        .data
+                        .current_container_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {} > {}", ns, po, co)
+                }
+            };
+            search_input_string = &navigation;
+        };
 
         let input = format!("[ {} ] {}", mode, search_input_string,);
         let input = Paragraph::new(input).style(Style::default().fg(col));
@@ -147,7 +131,51 @@ impl Kuco {
             input.block(Block::default().title(format!("{:─>width$}", "", width = 12)));
 
         // Render Title
-        f.render_widget(&title, chunks[0]);
+        let title_chunk = chunks[0];
+        let title_inner_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints(vec![Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(title_chunk);
+        let title_block = title_inner_chunks[0];
+        let refresh_block = title_inner_chunks[1];
+
+        // Define Header / Title
+        let heading_style = Style::new()
+            .fg(Color::Black)
+            .bg(Color::White)
+            .add_modifier(Modifier::ITALIC | Modifier::BOLD);
+        let title = Paragraph::new(Text::from(Span::styled(
+            format!("KuCo v{}", KUCO_VERSION),
+            heading_style,
+        )))
+        .alignment(Alignment::Left);
+        f.render_widget(&title, title_block);
+
+        // Define Refresh Header
+        let refresh_style = Style::new().fg(Color::Gray).add_modifier(Modifier::ITALIC);
+        let help_style = Style::new()
+            .fg(Color::LightCyan)
+            .add_modifier(Modifier::ITALIC);
+
+        let refresh_content = if self.view.data.last_refreshed_at == *"19:00:00" {
+            Paragraph::new(Text::from(Span::styled(
+                "loading cache ...".to_string(),
+                refresh_style,
+            )))
+            .alignment(Alignment::Right)
+        } else {
+            let text = vec![
+                Line::styled(
+                    format!("last refreshed at {:#}", self.view.data.last_refreshed_at),
+                    refresh_style,
+                ),
+                Line::styled("press 'r' to refresh".to_string(), help_style),
+            ];
+
+            Paragraph::new(Text::from(text)).alignment(Alignment::Right)
+        };
+
+        f.render_widget(&refresh_content, refresh_block);
 
         // Render List
         f.render_stateful_widget(

@@ -6,7 +6,7 @@ use kuco_k8s_backend::context::KubeContext;
 use kuco_sqlite_backend::{SqliteCache, SqliteDb};
 
 use color_eyre::eyre::{Result, WrapErr, eyre};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::Arc};
 
 fn get_user_home() -> Option<PathBuf> {
     dirs_next::home_dir()
@@ -58,19 +58,25 @@ async fn main() -> Result<()> {
     // Clone contexts to send to secondary thread
     let kube_context_for_task = kube_context.clone();
     let sqlite_cache_for_task = sqlite_cache.clone();
-    let sqlite_db_for_task = sqlite_db.clone();
+    let _sqlite_db_for_task = sqlite_db.clone();
 
     // Secondary thread for syncing kube data to cache
     tokio::spawn(periodic_kubernetes_to_cache_sync(
         kube_context_for_task,
-        // sqlite_cache_for_task,
-        sqlite_db_for_task,
+        sqlite_cache_for_task,
+        // sqlite_db_for_task,
     ));
     tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
 
+    let arc_sqlite_cache = Arc::new(sqlite_cache);
+    let arc_sqlite_db = Arc::new(sqlite_db);
+
     // Run TUI
     let terminal = ratatui::init();
-    let result = Kuco::new().await.run(terminal).await;
+    let result = Kuco::new(arc_sqlite_cache, arc_sqlite_db)
+        .await
+        .run(terminal)
+        .await;
 
     ratatui::restore();
 
