@@ -157,9 +157,9 @@ impl Kuco {
             .fg(Color::LightCyan)
             .add_modifier(Modifier::ITALIC);
 
-        let refresh_content = if self.view.data.last_refreshed_at == "00:00:00".to_owned() {
+        let refresh_content = if self.view.data.last_refreshed_at == *"00:00:00" {
             Paragraph::new(Text::from(Span::styled(
-                format!("loading cache ..."),
+                "loading cache ...".to_string(),
                 refresh_style,
             )))
             .alignment(Alignment::Right)
@@ -169,7 +169,7 @@ impl Kuco {
                     format!("last refreshed at {:#}", self.view.data.last_refreshed_at),
                     refresh_style,
                 ),
-                Line::styled(format!("press 'r' to refresh"), help_style),
+                Line::styled("press 'r' to refresh".to_string(), help_style),
             ];
 
             Paragraph::new(Text::from(text)).alignment(Alignment::Right)

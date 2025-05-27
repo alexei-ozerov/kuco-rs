@@ -1,5 +1,5 @@
 use kuco_k8s_backend::{
-    containers::ContainerData, context::KubeContext, namespaces::NamespaceData, pods::PodData,
+    context::KubeContext, namespaces::NamespaceData, pods::PodData,
 };
 use kuco_sqlite_backend::KucoSqliteStore;
 

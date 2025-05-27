@@ -183,7 +183,7 @@ impl KubeData {
             .await;
 
         self.pods.names = self.get_pods();
-        
+
         Ok(())
     }
 
@@ -274,7 +274,7 @@ impl KubeData {
             .unwrap_or_default();
 
         self.pod_names_list = fetched_pods;
-    
+
         Ok(())
     }
 }

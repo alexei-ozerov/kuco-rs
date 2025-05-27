@@ -73,7 +73,10 @@ async fn main() -> Result<()> {
 
     // Run TUI
     let terminal = ratatui::init();
-    let result = Kuco::new(arc_sqlite_cache, arc_sqlite_db).await.run(terminal).await;
+    let result = Kuco::new(arc_sqlite_cache, arc_sqlite_db)
+        .await
+        .run(terminal)
+        .await;
 
     ratatui::restore();
 
