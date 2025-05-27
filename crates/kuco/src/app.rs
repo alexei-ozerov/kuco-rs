@@ -82,7 +82,7 @@ impl Kuco {
             match self.view.view_mode {
                 ViewMode::NS => {
                     // Make sure NS is loaded from cache
-                    if self.view.data.namespace_names_list.len() == 0 {
+                    if self.view.data.namespace_names_list.is_empty() {
                         self.view.update_widget_kube_data().await;
                     };
 

@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Paragraph},
 };
 
-use crate::{app::*, data::KubeComponentState};
+use crate::{app::*, constants::KUCO_VERSION, data::KubeComponentState};
 
 impl Kuco {
     pub fn draw_view(&mut self, f: &mut Frame<'_>, mode_state: &mut KubeComponentState) {
@@ -43,7 +43,7 @@ impl Kuco {
             .bg(Color::White)
             .add_modifier(Modifier::ITALIC | Modifier::BOLD);
         let title = Paragraph::new(Text::from(Span::styled(
-            "KuCo v0.1.0".to_string(),
+            format!("KuCo v{}", KUCO_VERSION),
             heading_style,
         )))
         .alignment(Alignment::Left);
@@ -124,7 +124,13 @@ impl Kuco {
                         .current_pod_name
                         .clone()
                         .unwrap_or("".to_owned());
-                    format!("{} > {}", ns, po)
+                    let co = self
+                        .view
+                        .data
+                        .current_container_name
+                        .clone()
+                        .unwrap_or("".to_owned());
+                    format!("{} > {} > {}", ns, po, co)
                 }
             };
             search_input_string = &navigation;

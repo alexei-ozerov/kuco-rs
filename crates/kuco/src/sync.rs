@@ -5,11 +5,12 @@ use chrono::Utc;
 use std::time::Duration;
 use tokio::time::interval;
 
+use crate::constants::KUCO_CACHE_TABLE;
+
 pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'static>(
     kube_ctx_clone: KubeContext,
     cache_store: S,
 ) {
-    let cache_table = "kv_cache".to_string();
     let kube_client = kube_ctx_clone
         .client
         .as_ref()
@@ -27,7 +28,7 @@ pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'sta
         // Write Namespace List
         if let Err(e) = cache_store
             .set_json(
-                cache_table.clone(),
+                KUCO_CACHE_TABLE.to_owned().clone(),
                 "all_namespaces".to_string(),
                 &ns_data_fetcher.names,
             )
@@ -36,44 +37,30 @@ pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'sta
             tracing::error!("Failed to cache namespace names (sqlx): {}", e);
         }
 
-        // Write Pod Info
+        // TODO: Optimize this :3
+        // Write Pod Names
         for ns_name in &ns_data_fetcher.names {
             let mut pod_data_fetcher = PodData::default();
-            if let Err(e) = pod_data_fetcher
-                .update_all(kube_client.clone(), ns_name)
+            match pod_data_fetcher
+                .get_names(kube_client.clone(), ns_name)
                 .await
             {
-                tracing::error!(
-                    "Failed to fetch pods for namespace {} (sqlx): {}",
-                    ns_name,
-                    e
-                );
-                continue;
-            }
+                Ok(_) => {
+                    tracing::debug!("Successfully fetched pod names for {}.", ns_name.clone())
+                }
+                Err(_) => {
+                    tracing::error!("Failed to cache pod names for {}.", ns_name.clone())
+                }
+            };
+            let pods_in_ns_vec = pod_data_fetcher.names;
 
-            // TODO: Optimize this :3
-            let mut pods_in_ns_vec: Vec<String> = Vec::new();
-            for pod_info in &pod_data_fetcher.list {
-                pods_in_ns_vec.push(pod_info.name.clone());
-
-                // TODO: Implement PodInfo later
-                // let pod_key = format!("{}_{}", ns_name, pod_info.name);
-                // if let Err(e) = cache_store
-                //     .set_json(cache_table.clone(), pod_key, pod_info)
-                //     .await
-                // {
-                //     tracing::error!(
-                //         "Failed to cache pod info for {} (sqlx): {}",
-                //         pod_info.name,
-                //         e
-                //     );
-                // }
-            }
-
-            // TODO: Make this better!
             let pod_table_name = format!("pods_{}", ns_name.clone());
             if let Err(e) = cache_store
-                .set_json(cache_table.clone(), pod_table_name, &serde_json::json!(pods_in_ns_vec))
+                .set_json(
+                    KUCO_CACHE_TABLE.to_owned().clone(),
+                    pod_table_name,
+                    &serde_json::json!(pods_in_ns_vec),
+                )
                 .await
             {
                 tracing::error!(
@@ -84,11 +71,12 @@ pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'sta
             }
         }
 
+        // Write last update timestamp
         let current_timestamp_seconds: i64 = Utc::now().timestamp();
         let timestamp_key = "last_refreshed_at".to_string();
         if let Err(e) = cache_store
             .set_json(
-                cache_table.clone(),
+                KUCO_CACHE_TABLE.to_owned().clone(),
                 timestamp_key,
                 &current_timestamp_seconds,
             )

@@ -15,6 +15,8 @@ use kuco_k8s_backend::{
 };
 use kuco_sqlite_backend::{KucoSqliteStore, SqliteCache};
 
+use crate::constants::KUCO_CACHE_TABLE;
+
 /*
  * Create a generic Kube Component State Structure.
  */
@@ -123,11 +125,10 @@ impl KubeData {
     pub async fn update_namespaces_names_list(&mut self) -> Result<()> {
         let store = &self.arc_ctx;
 
-        let table_name = "kv_cache".to_owned();
         let key_name = "all_namespaces".to_owned();
 
         let fetched_namespaces: Vec<String> = store
-            .get_json::<Vec<String>>(table_name, key_name.clone())
+            .get_json::<Vec<String>>(KUCO_CACHE_TABLE.to_owned(), key_name.clone())
             .await
             .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
             .unwrap_or_default();
@@ -238,11 +239,10 @@ impl KubeData {
 
         let store = &self.arc_ctx;
 
-        let table_name = "kv_cache".to_owned();
         let key_name = format!("pods_{}", ns);
 
         let fetched_pods: Vec<String> = store
-            .get_json::<Vec<String>>(table_name, key_name.clone())
+            .get_json::<Vec<String>>(KUCO_CACHE_TABLE.to_owned(), key_name.clone())
             .await
             .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
             .unwrap_or_default();
