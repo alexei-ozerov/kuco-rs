@@ -61,7 +61,7 @@ pub enum InteractionMode {
 impl Kuco {
     pub async fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: SqliteDb) -> Self {
         Self {
-            arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db).into(),
+            arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db),
             running: true,
             events: EventHandler::new(),
             view: KubeWidget::new(sqlite_cache.clone()).await,

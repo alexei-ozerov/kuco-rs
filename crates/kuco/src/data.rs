@@ -2,7 +2,7 @@
  * Convert data from the k8s backend to structures consumed by the TUI.
  */
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::WrapErr};
 use ratatui::widgets::ListState;
 use std::sync::Arc;
 
@@ -95,14 +95,16 @@ impl KubeData {
     }
 
     pub fn get_namespaces(&mut self) -> Vec<String> {
-        let ref_ns_vec = self
-            .namespaces
-            .names
-            .iter()
-            .map(|ns| ns.to_string())
-            .collect();
+        // let ref_ns_vec = self
+        //     .namespaces
+        //     .names
+        //     .iter()
+        //     .map(|ns| ns.to_string())
+        //     .collect();
+        //
+        // ref_ns_vec
 
-        ref_ns_vec
+        self.namespace_name_list.clone()
     }
 
     pub fn get_pods(&mut self) -> Vec<String> {
@@ -130,37 +132,21 @@ impl KubeData {
         }
     }
 
-    // TODO: fix this please
-    pub async fn new_update_namespaces_names_list(&mut self) -> Result<()> {
-        let sqlite_cache_arc = &self.arc_ctx.clone();
-        let sqlite_cache = sqlite_cache_arc.as_ref();
+    pub async fn update_namespaces_names_list(&mut self) -> Result<()> {
+        let store = &self.arc_ctx;
 
         let table_name = "kv_cache".to_owned();
         let key_name = "all_namespaces".to_owned();
 
-        let json_bytes: NamespaceList = sqlite_cache
-            .get_json(table_name, key_name)
-            .await?
-            .unwrap_or({
-                NamespaceList {
-                    namespaces: Vec::new(),
-                }
-            });
+        let fetched_namespaces: Vec<String> = store
+            .get_json::<Vec<String>>(table_name, key_name.clone())
+            .await
+            .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
+            .unwrap_or_default();
 
-        self.namespace_name_list = json_bytes.namespaces;
+        self.namespace_name_list = fetched_namespaces;
 
         Ok(())
-    }
-
-    pub async fn update_namespaces_names_list(&mut self) {
-        self.namespaces
-            .update(
-                self.context
-                    .client
-                    .clone() // TODO: check if there is a way to avoid cloning ...
-                    .expect("[ERROR] Client is None."),
-            )
-            .await;
     }
 
     // Update PodData object and Pods List Vector
