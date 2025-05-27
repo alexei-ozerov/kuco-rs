@@ -64,8 +64,8 @@ impl StatefulWidget for KubeWidget {
         let mut display_list;
         if self.display.clone().unwrap().is_empty() {
             match self.view_mode {
-                ViewMode::NS => display_list = self.data.namespaces.names,
-                ViewMode::PODS => display_list = self.data.pods.names,
+                ViewMode::NS => display_list = self.data.namespace_names_list,
+                ViewMode::PODS => display_list = self.data.pod_names_list,
                 ViewMode::CONT => display_list = self.data.containers.names,
                 ViewMode::LOGS => display_list = self.data.logs.lines,
             }

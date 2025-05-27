@@ -50,18 +50,37 @@ pub async fn periodic_kubernetes_to_cache_sync<S: KucoSqliteStore + Clone + 'sta
                 );
                 continue;
             }
+
+            // TODO: Optimize this :3
+            let mut pods_in_ns_vec: Vec<String> = Vec::new();
             for pod_info in &pod_data_fetcher.list {
-                let pod_key = format!("{}-{}", ns_name, pod_info.name);
-                if let Err(e) = cache_store
-                    .set_json(cache_table.clone(), pod_key, pod_info)
-                    .await
-                {
-                    tracing::error!(
-                        "Failed to cache pod info for {} (sqlx): {}",
-                        pod_info.name,
-                        e
-                    );
-                }
+                pods_in_ns_vec.push(pod_info.name.clone());
+
+                // TODO: Implement PodInfo later
+                // let pod_key = format!("{}_{}", ns_name, pod_info.name);
+                // if let Err(e) = cache_store
+                //     .set_json(cache_table.clone(), pod_key, pod_info)
+                //     .await
+                // {
+                //     tracing::error!(
+                //         "Failed to cache pod info for {} (sqlx): {}",
+                //         pod_info.name,
+                //         e
+                //     );
+                // }
+            }
+
+            // TODO: Make this better!
+            let pod_table_name = format!("pods_{}", ns_name.clone());
+            if let Err(e) = cache_store
+                .set_json(cache_table.clone(), pod_table_name, &serde_json::json!(pods_in_ns_vec))
+                .await
+            {
+                tracing::error!(
+                    "Failed to cache pod names for {} (sqlx): {}",
+                    ns_name.clone(),
+                    e
+                );
             }
         }
 

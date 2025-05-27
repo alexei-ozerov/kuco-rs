@@ -18,7 +18,7 @@ impl Kuco {
             .constraints::<&[Constraint]>(
                 [
                     Constraint::Length(2), // header
-                    Constraint::Length(5), // navigation
+                    Constraint::Length(0), // navigation
                     Constraint::Min(1),    // results list
                     Constraint::Length(3), // input
                 ]
@@ -26,7 +26,7 @@ impl Kuco {
             )
             .split(f.area());
 
-        let top_chunk = chunks[1];
+        let top_chunk = chunks[0];
         let top_inner_chunks = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Percentage(90), Constraint::Percentage(10)])
@@ -81,7 +81,7 @@ impl Kuco {
                 .border_type(BorderType::Rounded)
                 .style(Style::default().fg(Color::Magenta)),
         );
-        f.render_widget(nav, top_inner_nav);
+        // f.render_widget(nav, top_inner_nav);
 
         // Mock Up Inner Results Data Pane
         // let data_block = Block::bordered().border_type(BorderType::Rounded);
@@ -111,7 +111,7 @@ impl Kuco {
                 .border_type(BorderType::Rounded)
                 .style(Style::default().fg(Color::Magenta)),
         );
-        f.render_widget(data_view_block, top_inner_title);
+        // f.render_widget(data_view_block, top_inner_title);
 
         // Define Header / Title
         let heading_style = Style::new()

@@ -58,12 +58,13 @@ async fn main() -> Result<()> {
     // Clone contexts to send to secondary thread
     let kube_context_for_task = kube_context.clone();
     let sqlite_cache_for_task = sqlite_cache.clone();
-    let _sqlite_db_for_task = sqlite_db.clone();
+    let sqlite_db_for_task = sqlite_db.clone();
 
     // Secondary thread for syncing kube data to cache
     tokio::spawn(periodic_kubernetes_to_cache_sync(
         kube_context_for_task,
         sqlite_cache_for_task,
+        // sqlite_db_for_task,
     ));
     tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
 

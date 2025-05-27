@@ -14,12 +14,6 @@ use kuco_k8s_backend::{
     pods::{PodData, PodInfo},
 };
 use kuco_sqlite_backend::{KucoSqliteStore, SqliteCache};
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct NamespaceList {
-    namespaces: Vec<String>,
-}
 
 /*
  * Create a generic Kube Component State Structure.
@@ -63,7 +57,8 @@ pub struct KubeData {
     pub current_pod_info: PodInfo,
 
     // TODO: Refactor old components into new ones from cache
-    pub namespace_name_list: Vec<String>,
+    pub namespace_names_list: Vec<String>,
+    pub pod_names_list: Vec<String>,
 
     // TODO: Refactor old struct members
     pub namespaces: NamespaceData,
@@ -90,25 +85,18 @@ impl KubeData {
             containers: ContainerData::new(),
             current_container_name: None,
             logs: LogData::new(),
-            namespace_name_list: Vec::new(),
+            namespace_names_list: Vec::new(),
+            pod_names_list: Vec::new(),
         }
     }
 
     pub fn get_namespaces(&mut self) -> Vec<String> {
-        // let ref_ns_vec = self
-        //     .namespaces
-        //     .names
-        //     .iter()
-        //     .map(|ns| ns.to_string())
-        //     .collect();
-        //
-        // ref_ns_vec
-
-        self.namespace_name_list.clone()
+        self.namespace_names_list.clone()
     }
 
     pub fn get_pods(&mut self) -> Vec<String> {
-        self.pods.names.clone()
+        self.pod_names_list.clone()
+        // self.pods.names.clone()
     }
 
     pub fn get_logs(&mut self) -> Vec<String> {
@@ -121,7 +109,7 @@ impl KubeData {
 
     pub async fn update_all(&mut self) {
         self.update_context().await;
-        self.update_namespaces_names_list().await;
+        let _ = self.update_namespaces_names_list().await;
         self.update_pods_names_list().await;
     }
 
@@ -144,13 +132,13 @@ impl KubeData {
             .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
             .unwrap_or_default();
 
-        self.namespace_name_list = fetched_namespaces;
+        self.namespace_names_list = fetched_namespaces;
 
         Ok(())
     }
 
     // Update PodData object and Pods List Vector
-    pub async fn update_pods(&mut self) {
+    pub async fn update_pods(&mut self) -> Result<()> {
         let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
@@ -168,6 +156,8 @@ impl KubeData {
             .await;
 
         self.pods.names = self.get_pods();
+        
+        Ok(())
     }
 
     pub async fn update_logs_lines_list(&mut self) {
@@ -240,22 +230,26 @@ impl KubeData {
         };
     }
 
-    pub async fn update_pods_names_list(&mut self) {
+    pub async fn update_pods_names_list(&mut self) -> Result<()> {
         let ns: String = match &self.current_namespace_name {
             Some(s) => s.to_owned(),
             None => "default".to_owned(),
         };
 
-        let _ = self
-            .pods
-            .get_names(
-                self.context
-                    .client
-                    .clone() // TODO: check if there is a way to avoid cloning ...
-                    .expect("[ERROR] Client is None."),
-                &ns,
-            )
-            .await;
+        let store = &self.arc_ctx;
+
+        let table_name = "kv_cache".to_owned();
+        let key_name = format!("pods_{}", ns);
+
+        let fetched_pods: Vec<String> = store
+            .get_json::<Vec<String>>(table_name, key_name.clone())
+            .await
+            .wrap_err_with(|| format!("Failed to get JSON for key '{}'", key_name.clone()))?
+            .unwrap_or_default();
+
+        self.pod_names_list = fetched_pods;
+    
+        Ok(())
     }
 }
 
