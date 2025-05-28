@@ -5,7 +5,6 @@ use kube::{Api, Client};
 use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
 use kuco_sqlite_backend::KucoSqliteStore;
 use std::time::Duration;
-use tokio::time::interval;
 
 use crate::constants::{
     CONT_NAMES_CACHE_KEY, KUCO_CACHE_TABLE, NS_NAMES_CACHE_KEY, POD_NAMES_CACHE_KEY,
