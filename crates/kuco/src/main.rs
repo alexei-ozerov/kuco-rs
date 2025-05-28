@@ -1,5 +1,4 @@
 use kuco::{app::Kuco, sync::periodic_multistage_cache_sync};
-use kuco::sync::periodic_kubernetes_to_cache_sync;
 use kuco::tracing::init_tracing;
 
 use kuco_k8s_backend::context::KubeContext;
@@ -41,6 +40,9 @@ async fn main() -> Result<()> {
         tracing::error!("Failed to initialize Kubernetes context: {}", e);
         color_eyre::eyre::eyre!("K8s context init failed: {}", e)
     })?;
+
+    // TODO: replace passing a context directly by using arc (and avoid cloning (: )
+    let _arc_kube_context = Arc::new(kube_context.clone());
     tracing::info!("Kubernetes context initialized.");
 
     // Init Sqlite in-memory cache
