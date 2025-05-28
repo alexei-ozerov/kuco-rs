@@ -1486,6 +1486,8 @@ dependencies = [
  "directories",
  "dirs-next",
  "futures",
+ "k8s-openapi",
+ "kube",
  "kuco-k8s-backend",
  "kuco-sqlite-backend",
  "lazy_static",

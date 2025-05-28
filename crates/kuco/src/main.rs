@@ -1,4 +1,4 @@
-use kuco::app::Kuco;
+use kuco::{app::Kuco, sync::periodic_multistage_cache_sync};
 use kuco::sync::periodic_kubernetes_to_cache_sync;
 use kuco::tracing::init_tracing;
 
@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
     let _sqlite_db_for_task = sqlite_db.clone();
 
     // Secondary thread for syncing kube data to cache
-    tokio::spawn(periodic_kubernetes_to_cache_sync(
+    tokio::spawn(periodic_multistage_cache_sync(
         kube_context_for_task,
         sqlite_cache_for_task,
         // sqlite_db_for_task,
