@@ -4,7 +4,7 @@ use k8s_openapi::api::core::v1::Pod;
 use kube::{Api, Client};
 use kuco_k8s_backend::{context::KubeContext, namespaces::NamespaceData, pods::PodData};
 use kuco_sqlite_backend::KucoSqliteStore;
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use crate::constants::{
     CONT_NAMES_CACHE_KEY, KUCO_CACHE_TABLE, NS_NAMES_CACHE_KEY, POD_NAMES_CACHE_KEY,
@@ -120,25 +120,30 @@ async fn run_stage2_sync_for_namespace<S: KucoSqliteStore + Clone + 'static>(
 }
 
 pub async fn periodic_multistage_cache_sync<S: KucoSqliteStore + Clone + 'static>(
-    kube_ctx_clone: KubeContext,
-    cache_store: S,
+    arc_kube_ctx: Arc<KubeContext>,
+    arc_cache_store: Arc<S>,
 ) {
-    let kube_client = kube_ctx_clone
+    let kube_client: Client = arc_kube_ctx
         .client
         .as_ref()
         .expect("Kube client not initialized")
         .clone();
-    let mut stage1_ticker = tokio::time::interval(Duration::from_secs(10)); // Namespace/Pod names
-    let mut stage2_ticker = tokio::time::interval(Duration::from_secs(20)); // Slower full detail scan
+
+    // Access Arc<Cache>
+    let cache_store: &S = arc_cache_store.as_ref();
+
+    // Set Tick Rates & Initialize Stage 2 Data
+    let mut stage1_ticker = tokio::time::interval(Duration::from_secs(5)); // Namespace/Pod names
+    let mut stage2_ticker = tokio::time::interval(Duration::from_secs(10)); // Slower full detail scan
     let mut current_namespaces_for_stage2: Vec<String> = Vec::new();
     let mut stage2_ns_index = 0;
-
+ 
     tracing::info!("Periodic K8s sync task started (Staged).");
 
     loop {
         tokio::select! {
             _ = stage1_ticker.tick() => {
-                match run_stage1_sync(&kube_client, &cache_store).await {
+                match run_stage1_sync(&kube_client, cache_store).await {
                     Ok(ns_names) => current_namespaces_for_stage2 = ns_names, // Update list for Stage 2
                     Err(e) => tracing::error!("Stage 1 Sync failed: {:?}", e),
                 }
@@ -148,7 +153,7 @@ pub async fn periodic_multistage_cache_sync<S: KucoSqliteStore + Clone + 'static
                     // Process one namespace per Stage 2 tick to spread the load
                     let ns_to_process = current_namespaces_for_stage2[stage2_ns_index].clone();
                     tracing::info!("Running Stage 2 Sync: Container Details for namespace '{}'", ns_to_process);
-                    run_stage2_sync_for_namespace(&kube_client, &cache_store, &ns_to_process).await;
+                    run_stage2_sync_for_namespace(&kube_client, cache_store, &ns_to_process).await;
                     stage2_ns_index = (stage2_ns_index + 1) % current_namespaces_for_stage2.len(); // Cycle through namespaces
                      tracing::info!("Finished Stage 2 Sync for namespace '{}'", ns_to_process);
                 } else {
@@ -158,4 +163,3 @@ pub async fn periodic_multistage_cache_sync<S: KucoSqliteStore + Clone + 'static
         }
     }
 }
-

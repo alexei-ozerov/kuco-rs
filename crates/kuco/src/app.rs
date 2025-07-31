@@ -17,11 +17,11 @@ use crate::view::KubeWidget;
 #[derive(Debug)]
 pub struct SqlitePoolCtx {
     pub cache: Arc<SqliteCache>, // KubeData in-memory cache.
-    pub db: Arc<SqliteDb>,       // TODO: Implement the persistence mechanisms at a later date.
+    pub db: Arc<SqliteDb>, // TODO: Implement the persistence mechanisms at a later date.
 }
 
 impl SqlitePoolCtx {
-    fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
+   fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
         Self {
             cache: sqlite_cache,
             db: sqlite_db,
@@ -61,7 +61,7 @@ pub enum InteractionMode {
 impl Kuco {
     pub async fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
         Self {
-            arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db),
+            arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db.clone()).into(),
             running: true,
             events: EventHandler::new(),
             view: KubeWidget::new(sqlite_cache.clone()).await,
@@ -76,26 +76,11 @@ impl Kuco {
         self.view.update_widget_kube_data().await;
 
         while self.running {
-            // Since this will only happen for 5 seconds even when 19:00:00 is hit 
-            // I don't think this is the worst thing to happen to just trigger another
-            // reload ... I'm also not that good at this, so I could easily be wrong.
-            //
-            // TODO: Make this cleaner at some point
-            if self.view.data.last_refreshed_at == *"19:00:00" {
-                self.view.update_widget_kube_data().await;
-            };
-
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
             let mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
-                    // Make sure NS is loaded from cache
-                    if self.view.data.namespace_names_list.is_empty() {
-                        self.view.update_widget_kube_data().await;
-                    };
-
-
                     if kube_state.namespace_state.list_state.selected().is_none() {
                         kube_state.namespace_state.list_state.select_first();
                     }
@@ -147,11 +132,7 @@ impl Kuco {
                     // TODO: Implement a process that runs on another thread in a non-blocking
                     // fashion and continually updates the sqlite database with cluster
                     // information, and retool this event to pull data from the database ...
-                    AppEvent::Refresh => {
-                        self.view.update_widget_kube_data().await;
-                        let _ = self.view.data.update_namespaces_names_list().await;
-                        let _ = self.view.data.get_namespaces();
-                    }
+                    AppEvent::Refresh => self.view.update_widget_kube_data().await,
                     AppEvent::Quit => self.quit(),
                     AppEvent::NavRight => match self.view.view_mode {
                         ViewMode::NS => {
@@ -263,7 +244,7 @@ impl Kuco {
 
                     // Navigation
                     KeyCode::Right | KeyCode::Enter => {
-                        // self.events.send(AppEvent::NavRight); // Disable auto-selection
+                        self.events.send(AppEvent::NavRight);
                         self.view.interact_mode = InteractionMode::NORMAL;
                     }
                     KeyCode::Left => self.events.send(AppEvent::NavLeft),

@@ -42,36 +42,36 @@ async fn main() -> Result<()> {
     })?;
 
     // TODO: replace passing a context directly by using arc (and avoid cloning (: )
-    let _arc_kube_context = Arc::new(kube_context.clone());
+    let arc_kube_context = Arc::new(kube_context);
     tracing::info!("Kubernetes context initialized.");
 
     // Init Sqlite in-memory cache
     let sqlite_cache = SqliteCache::new_in_memory()
         .await
         .wrap_err("Sqlite cache init failed")?;
+    let arc_sqlite_cache = Arc::new(sqlite_cache);
     tracing::info!("In-memory Sqlite cache initialized.");
 
     // Init Sqlite persistent storage
     let sqlite_db = SqliteDb::new(&db_path, db_connection_timeout)
         .await
         .wrap_err("Sqlite cache init failed")?;
+    let arc_sqlite_db = Arc::new(sqlite_db);
     tracing::info!("Persistent Sqlite DB initialized.");
 
     // Clone contexts to send to secondary thread
-    let kube_context_for_task = kube_context.clone();
-    let sqlite_cache_for_task = sqlite_cache.clone();
-    let _sqlite_db_for_task = sqlite_db.clone();
+    let arc_kube_context_for_task = arc_kube_context.clone();
+    let arc_sqlite_cache_for_task = arc_sqlite_cache.clone();
+    let _arc_sqlite_db_for_task = arc_sqlite_db.clone();
 
     // Secondary thread for syncing kube data to cache
     tokio::spawn(periodic_multistage_cache_sync(
-        kube_context_for_task,
-        sqlite_cache_for_task,
-        // sqlite_db_for_task,
+        arc_kube_context_for_task,
+        arc_sqlite_cache_for_task,
+        // arc_sqlite_db_for_task,
     ));
     tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
 
-    let arc_sqlite_cache = Arc::new(sqlite_cache);
-    let arc_sqlite_db = Arc::new(sqlite_db);
 
     // Run TUI
     let terminal = ratatui::init();
