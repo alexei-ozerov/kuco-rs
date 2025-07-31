@@ -97,8 +97,6 @@ impl StatefulWidget for KubeWidget {
                 state.list_state.select_first();
             }
         } else {
-            // In the case of logs, the vector should be reversed to preserve the key movement.
-            display_list.reverse();
             list = List::new(display_list.clone())
                 .block(block)
                 .style(Style::new().fg(Color::Magenta))

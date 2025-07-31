@@ -73,16 +73,20 @@ impl Kuco {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
 
-        while self.running {
-            // Update widgets once the application is running
-            self.view.update_widget_kube_data().await;
 
+        while self.running {
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
             let mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
                     if kube_state.namespace_state.list_state.selected().is_none() {
+                        // TODO: Figure out a better place for this. This is here currently 
+                        //       because this should only trigger on startup, where the list
+                        //       selection is not yet set. This function needs to run after 
+                        //       self.running is true, but only once ...
+                        self.view.update_widget_kube_data().await;
+
                         kube_state.namespace_state.list_state.select_first();
                     }
                     mode_state = &mut kube_state.namespace_state;

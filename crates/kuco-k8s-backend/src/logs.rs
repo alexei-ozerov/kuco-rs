@@ -30,17 +30,11 @@ impl LogData {
     ) -> Result<(), KucoBackendError> {
         let pods_api: Api<Pod> = Api::namespaced(client, namespace);
 
-        // 2. Define LogParams to specify the container and other log options.
-        //    - `container`: Specifies which container's logs to fetch.
-        //    - `follow`: If true, streams logs. Default is false (get current logs).
-        //    - `timestamps`: If true, adds timestamps to log lines.
-        //    - `tail_lines`: Fetches only the last N lines.
-        //    - `previous`: If true, fetches logs from a previous, terminated instance of the container.
         let log_params = LogParams {
             container: Some(container_name.to_string()),
-            timestamps: true, // Example: include timestamps
-            // tail_lines: Some(100), // Example: get last 100 lines
-            ..Default::default() // Uses default for follow (false), previous (false), etc.
+            timestamps: true,
+            tail_lines: Some(200),
+            ..Default::default()
         };
 
         let log_string = pods_api.logs(pod_name, &log_params).await.unwrap_or({
