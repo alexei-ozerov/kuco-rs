@@ -73,9 +73,10 @@ impl Kuco {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
 
-        self.view.update_widget_kube_data().await;
-
         while self.running {
+            // Update widgets once the application is running
+            self.view.update_widget_kube_data().await;
+
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
             let mode_state: &mut KubeComponentState;
