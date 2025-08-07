@@ -4,10 +4,11 @@ KuCo is a Kubernetes Console TUI, used for simplifying repetative commands with 
 Inspired by (much better and more interesting) projects such as [Atuin](https://atuin.sh/), and the [Dirtwave M8 Tracker](https://dirtywave.com/), KuCo aims to combine elements 
 from each to create something which can stave off my RSI from writing `k get po -n... | grep...` constantly.
 
-KuCo's functionality is encapsulated by a set of screens. The way you traverse those screens is wrapped up in 
-a UI element shamelessly stolen from the M8.
+To be clear, this is a _learning project_ for me - things will change frequently and often. My goal is to get exposure to multi-threading, in-memory caching, and structuring 
+larger projects when building them on my own.
 
-TODO: Explain the chain and all that ...
+KuCo's functionality is encapsulated by a set of screens. The way you traverse those screens passes data from one screen to the next. This can be visualized by thinking of the
+structure shamelessly stolen from the M8.
 
 ```
   S A 
