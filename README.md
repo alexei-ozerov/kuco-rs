@@ -1,6 +1,8 @@
 # KuCo - Kubernetes Console 
 KuCo is a Kubernetes Console TUI, used for simplifying repetative commands with a friendly interface.
 
+https://github.com/user-attachments/assets/b6db472e-6dc4-4a48-af6a-1fd9219abd93
+
 Inspired by (much better and more interesting) projects such as [Atuin](https://atuin.sh/), and the [Dirtwave M8 Tracker](https://dirtywave.com/), KuCo aims to combine elements 
 from each to create something which can stave off my RSI from writing `k get po -n... | grep...` constantly.
 
