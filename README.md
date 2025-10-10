@@ -50,6 +50,11 @@ pods, or running tests of adding and deleting resources.
 - kuco-backend-sqlite
 - kuco-cache
 
+## Dist Release Procedure
+1. Update the crate version.
+2. Create a tag matching the crate version and push it (`git tag v${CRATE_VERSION} && git push --tags`).
+3. Review workflow in GitHub.
+
 ## Technologies Used
 - [Sqlite](https://sqlite.org/) 
 - Rust ([Ratatui](https://ratatui.rs/), [SQLx](https://github.com/launchbadge/sqlx), [Tokio](https://tokio.rs/), [kube-rs](https://kube.rs/))
