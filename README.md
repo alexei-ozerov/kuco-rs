@@ -17,7 +17,6 @@ structure shamelessly stolen from the M8.
   S A 
 N P C L
   D D
-
 ```
 
 Moving from left to right, prerequisite data is stored for each subsequent screen (ie. which namespace your pod
@@ -51,9 +50,9 @@ pods, or running tests of adding and deleting resources.
 - kuco-cache
 
 ## Dist Release Procedure
-1. Update the crate version.
+1. Update the crate version & commit changes (`git add . && git commit -am "release: version ${CRATE_VERSION}" && git push`).
 2. Create a tag matching the crate version and push it (`git tag v${CRATE_VERSION} && git push --tags`).
-3. Review workflow in GitHub.
+3. Review workflow in GitHub to validate successful release.
 
 ## Technologies Used
 - [Sqlite](https://sqlite.org/) 
