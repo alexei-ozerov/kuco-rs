@@ -64,7 +64,7 @@ impl StatefulWidget for KubeWidget {
 
         let block = Block::default().title_alignment(Alignment::Left);
 
-        let mut display_list;
+        let display_list;
         if self.display.clone().unwrap().is_empty() {
             match self.view_mode {
                 ViewMode::NS => display_list = self.data.namespace_names_list,
