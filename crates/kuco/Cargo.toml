@@ -2,13 +2,12 @@
 name = "kuco"
 edition = "2024"
 description = "kuco - kubernetes console tui"
-
-[[bin]]
-name = "kuco"
-
 version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
+
+[[bin]]
+name = "kuco"
 
 [dependencies]
 kuco-k8s-backend = { path = "../kuco-k8s-backend/" }

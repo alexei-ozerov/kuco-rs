@@ -221,6 +221,20 @@ impl Kuco {
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => mode_state.list_state.select_previous(),
+                    
+                    // Vim Shortcuts
+                    // Goto Bottom (first)
+                    KeyCode::Char('g' | 'G') if key_event.modifiers == KeyModifiers::SHIFT => {
+                        mode_state.list_state.select_first()
+                    }
+                    // TODO: please implement 'gg' instead of 'g' for movement to match Vim
+                    // controls
+                    KeyCode::Char('g' | 'G') => {
+                        if !self.view.display.clone().unwrap().is_empty() {
+                            let last_index = self.view.display.clone().unwrap().len() - 1_usize;
+                            mode_state.list_state.select(Some(last_index));
+                        }
+                    }
 
                     _ => {}
                 }
