@@ -22,7 +22,7 @@ async fn main() -> Result<()> {
     let db_path: PathBuf = match get_user_home() {
         Some(home_path) => {
             let path = home_path.join(".kuco").join("user_kube_data.db");
-            tracing::info!("Database path will be: {}", home_path.display());
+            tracing::info!("Database path will be: {}", path.display());
 
             path
         }
