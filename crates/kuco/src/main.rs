@@ -1,5 +1,5 @@
-use kuco::{app::Kuco, sync::periodic_multistage_cache_sync};
 use kuco::tracing::init_tracing;
+use kuco::{app::Kuco, sync::periodic_multistage_cache_sync};
 
 use kuco_k8s_backend::context::KubeContext;
 use kuco_sqlite_backend::{SqliteCache, SqliteDb};
@@ -71,7 +71,6 @@ async fn main() -> Result<()> {
         // arc_sqlite_db_for_task,
     ));
     tracing::info!("Periodic K8s data sync task (using SQLx) spawned.");
-
 
     // Run TUI
     let terminal = ratatui::init();

@@ -137,7 +137,7 @@ pub async fn periodic_multistage_cache_sync<S: KucoSqliteStore + Clone + 'static
     let mut stage2_ticker = tokio::time::interval(Duration::from_secs(10)); // Slower full detail scan
     let mut current_namespaces_for_stage2: Vec<String> = Vec::new();
     let mut stage2_ns_index = 0;
- 
+
     tracing::info!("Periodic K8s sync task started (Staged).");
 
     loop {

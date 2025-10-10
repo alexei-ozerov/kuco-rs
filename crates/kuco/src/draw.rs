@@ -157,23 +157,15 @@ impl Kuco {
             .fg(Color::LightCyan)
             .add_modifier(Modifier::ITALIC);
 
-        let refresh_content = if self.view.data.last_refreshed_at == *"19:00:00" {
-            Paragraph::new(Text::from(Span::styled(
-                "loading cache ...".to_string(),
+        let text = vec![
+            Line::styled(
+                format!("last refreshed at {:#}", self.view.data.last_refreshed_at),
                 refresh_style,
-            )))
-            .alignment(Alignment::Right)
-        } else {
-            let text = vec![
-                Line::styled(
-                    format!("last refreshed at {:#}", self.view.data.last_refreshed_at),
-                    refresh_style,
-                ),
-                Line::styled("press 'r' to refresh".to_string(), help_style),
-            ];
-
-            Paragraph::new(Text::from(text)).alignment(Alignment::Right)
-        };
+            ),
+            Line::styled("press 'r' to refresh".to_string(), help_style),
+        ];
+       
+        let refresh_content = Paragraph::new(Text::from(text)).alignment(Alignment::Right);
 
         f.render_widget(&refresh_content, refresh_block);
 

@@ -17,11 +17,11 @@ use crate::view::KubeWidget;
 #[derive(Debug)]
 pub struct SqlitePoolCtx {
     pub cache: Arc<SqliteCache>, // KubeData in-memory cache.
-    pub db: Arc<SqliteDb>, // TODO: Implement the persistence mechanisms at a later date.
+    pub db: Arc<SqliteDb>,       // TODO: Implement the persistence mechanisms at a later date.
 }
 
 impl SqlitePoolCtx {
-   fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
+    fn new(sqlite_cache: Arc<SqliteCache>, sqlite_db: Arc<SqliteDb>) -> Self {
         Self {
             cache: sqlite_cache,
             db: sqlite_db,
@@ -33,6 +33,7 @@ impl SqlitePoolCtx {
 pub struct Kuco {
     pub arc_ctx: SqlitePoolCtx,
     pub running: bool,
+    pub cached: bool,
     pub events: EventHandler,
     pub view: KubeWidget,
     pub cache: Option<Vec<String>>,
@@ -63,6 +64,7 @@ impl Kuco {
         Self {
             arc_ctx: SqlitePoolCtx::new(sqlite_cache.clone(), sqlite_db.clone()).into(),
             running: true,
+            cached: false,
             events: EventHandler::new(),
             view: KubeWidget::new(sqlite_cache.clone()).await,
             cache: None,
@@ -73,17 +75,22 @@ impl Kuco {
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> color_eyre::Result<()> {
         let mut kube_state = KubeWidgetState::new();
 
-
         while self.running {
+            // Check for default timestamp & refresh widget to pick up latest cache.
+            if self.view.data.last_refreshed_at == "19:00:00" {
+                self.view.update_widget_kube_data().await;
+                tracing::debug!("Refreshing widget to get updated refresh timestamp.");
+            }
+
             // Set Mode-Specific Data
             // Using a reference here so that I don't need to copy state over and over ...
             let mode_state: &mut KubeComponentState;
             match self.view.view_mode {
                 ViewMode::NS => {
                     if kube_state.namespace_state.list_state.selected().is_none() {
-                        // TODO: Figure out a better place for this. This is here currently 
+                        // TODO: Figure out a better place for this. This is here currently
                         //       because this should only trigger on startup, where the list
-                        //       selection is not yet set. This function needs to run after 
+                        //       selection is not yet set. This function needs to run after
                         //       self.running is true, but only once ...
                         self.view.update_widget_kube_data().await;
 
@@ -127,7 +134,9 @@ impl Kuco {
             })?;
 
             match self.events.next().await? {
-                Event::Tick => self.tick(),
+                Event::Tick => {
+                    self.tick();
+                }
                 Event::Crossterm(event) => {
                     if let crossterm::event::Event::Key(key_event) = event {
                         self.handle_key_events(key_event, mode_state)?
@@ -221,7 +230,7 @@ impl Kuco {
                         }
                     }
                     KeyCode::Down | KeyCode::Char('j') => mode_state.list_state.select_previous(),
-                    
+
                     // Vim Shortcuts
                     // Goto Bottom (first)
                     KeyCode::Char('g' | 'G') if key_event.modifiers == KeyModifiers::SHIFT => {
