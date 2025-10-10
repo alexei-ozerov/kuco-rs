@@ -5,6 +5,7 @@ description = "kuco - kubernetes console tui"
 version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
+repository = { workspace = true }
 
 [[bin]]
 name = "kuco"
