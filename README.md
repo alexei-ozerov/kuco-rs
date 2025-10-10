@@ -1,10 +1,11 @@
 # KuCo - Kubernetes Console 
 KuCo is a Kubernetes Console TUI, used for simplifying repetative commands with a friendly interface.
 
-https://github.com/user-attachments/assets/f5e6798b-1aa8-43af-b612-5de31924c9c1
+![kuco-rs-demo-01](https://github.com/user-attachments/assets/674ac125-c353-48a2-90e2-7656a044ab91)
 
+# Overview
 Inspired by (much better and more interesting) projects such as [Atuin](https://atuin.sh/), and the [Dirtwave M8 Tracker](https://dirtywave.com/), KuCo aims to combine elements 
-from each to create something which can stave off my RSI from writing `k get po -n... | grep...` constantly.
+from each to create something which can stave off my RSI caused by writing `k get po -n... | grep...` constantly.
 
 To be clear, this is a _learning project_ for me - things will change frequently and often. My goal is to get exposure to multi-threading, in-memory caching, and structuring 
 larger projects when building them on my own.
